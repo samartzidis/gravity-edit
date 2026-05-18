@@ -1,0 +1,25 @@
+<mxfile host="65bd71144e">
+    <diagram id="S20E5BEl1uJksr1RWseV" name="Page-1">
+        <mxGraphModel dx="378" dy="883" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="560" pageHeight="360" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="s1" value="&lt;b&gt;Single&lt;br/&gt;Responsibility&lt;/b&gt;" style="rhombus;whiteSpace=wrap;html=1;fillColor=#E8696B;strokeColor=none;fontColor=#FFFFFF;fontSize=10;fontStyle=1;verticalAlign=middle;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="70" width="130" height="130" as="geometry"/>
+                </mxCell>
+                <mxCell id="s3" value="&lt;b&gt;Liskov&#39;s&lt;br/&gt;Substitution&lt;br/&gt;Principle&lt;/b&gt;" style="rhombus;whiteSpace=wrap;html=1;fillColor=#7ABCD4;strokeColor=none;fontColor=#FFFFFF;fontSize=10;fontStyle=1;verticalAlign=middle;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="200" y="70" width="130" height="130" as="geometry"/>
+                </mxCell>
+                <mxCell id="s5" value="&lt;b&gt;Dependency&lt;br/&gt;Inversion&lt;/b&gt;" style="rhombus;whiteSpace=wrap;html=1;fillColor=#2D5F8E;strokeColor=none;fontColor=#FFFFFF;fontSize=10;fontStyle=1;verticalAlign=middle;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="340" y="70" width="130" height="130" as="geometry"/>
+                </mxCell>
+                <mxCell id="s2" value="&lt;b&gt;Open/Closed&lt;br/&gt;Principle&lt;/b&gt;" style="rhombus;whiteSpace=wrap;html=1;fillColor=#E8B830;strokeColor=none;fontColor=#FFFFFF;fontSize=10;fontStyle=1;verticalAlign=middle;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="130" y="155" width="130" height="130" as="geometry"/>
+                </mxCell>
+                <mxCell id="s4" value="&lt;b&gt;Interface&lt;br/&gt;Segregation&lt;/b&gt;" style="rhombus;whiteSpace=wrap;html=1;fillColor=#4A88B8;strokeColor=none;fontColor=#FFFFFF;fontSize=10;fontStyle=1;verticalAlign=middle;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="270" y="155" width="130" height="130" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

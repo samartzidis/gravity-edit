@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+webview-ui/node_modules/
+
+# Build output
+out/
+dist/
+webview-ui/dist/
+
+# TypeScript incremental compilation
+*.tsbuildinfo
+
+# VS Code extension packaging
+*.vsix
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/settings.json
+.vscode/launch.json
+.vscode/extensions.json
+
+.memory

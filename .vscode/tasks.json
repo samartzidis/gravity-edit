@@ -1,0 +1,83 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "npm",
+      "script": "watch",
+      "problemMatcher": "$tsc-watch",
+      "isBackground": true,
+      "presentation": {"reveal": "silent"},
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "type": "npm",
+      "script": "compile",
+      "problemMatcher": "$tsc",
+      "group": "build"
+    },
+    {
+      "label": "Extension: Launch Extension Development Host",
+      "type": "process",
+      "command": "code",
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
+      "windows": {
+        "command": "C:\\Program Files\\Microsoft VS Code\\Code.exe",
+        "args": ["--extensionDevelopmentPath=${workspaceFolder}"]
+      },
+      "linux": {
+        "command": "code",
+        "args": ["--extensionDevelopmentPath=${workspaceFolder}"]
+      },
+      "osx": {
+        "command": "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code",
+        "args": ["--extensionDevelopmentPath=${workspaceFolder}"]
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Extension: Build All",
+      "type": "npm",
+      "script": "build:all",
+      "problemMatcher": "$tsc",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Extension: Pack VSIX",
+      "dependsOrder": "sequence",
+      "dependsOn": ["Extension: Build All"],
+      "type": "shell",
+      "command": "npx --yes @vscode/vsce package --allow-missing-repository",
+      "problemMatcher": [],
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": true
+      }
+    },
+    {
+      "label": "Extension: Launch Host",
+      "dependsOn": ["Extension: Launch Extension Development Host"],
+      "problemMatcher": [],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    }
+  ]
+}

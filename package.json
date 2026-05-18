@@ -1,0 +1,119 @@
+{
+  "name": "gravity-edit",
+  "displayName": "Gravity Visual Markdown Editor",
+  "description": "Edit Markdown files with the Gravity UI markdown editor, with support for optional Yandex Flavored Markdown (YFM), Mermaid, Draw.io, and more.",
+  "version": "0.0.1",
+  "publisher": "GeorgeSamartzidis",
+  "author": "George Samartzidis",
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "repository": {"type": "git", "url": "https://github.com/samartzidis/gravity-edit"},
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Markdown", "Editing", "Visual", "WYSIWYG", "Gravity", "Markdown Editor", "Draw.io", "Mermaid"],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "gravityEdit.openWithGravity",
+        "title": "Open With Gravity Editor",
+        "category": "Gravity Edit"
+      },
+      {
+        "command": "gravityEdit.noOp",
+        "title": "No-op (editor keyboard passthrough)",
+        "category": "Gravity Edit"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "gravityEdit.openWithGravity",
+          "when": "resourceExtname == .md",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "gravityEdit.openWithGravity",
+          "when": "editorLangId == markdown",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "key": "ctrl+b",
+        "command": "gravityEdit.noOp",
+        "when": "activeCustomEditorId == 'gravityEdit.markdownEditor'"
+      },
+      {
+        "key": "ctrl+e",
+        "command": "gravityEdit.noOp",
+        "when": "activeCustomEditorId == 'gravityEdit.markdownEditor'"
+      },
+      {
+        "key": "ctrl+k",
+        "command": "gravityEdit.noOp",
+        "when": "activeCustomEditorId == 'gravityEdit.markdownEditor'"
+      },
+      {
+        "key": "ctrl+shift+s",
+        "command": "gravityEdit.noOp",
+        "when": "activeCustomEditorId == 'gravityEdit.markdownEditor'"
+      },
+      {
+        "key": "ctrl+shift+e",
+        "command": "gravityEdit.noOp",
+        "when": "activeCustomEditorId == 'gravityEdit.markdownEditor'"
+      },
+      {
+        "key": "ctrl+shift+m",
+        "command": "gravityEdit.noOp",
+        "when": "activeCustomEditorId == 'gravityEdit.markdownEditor'"
+      },
+      {
+        "key": "ctrl+shift+l",
+        "command": "gravityEdit.noOp",
+        "when": "activeCustomEditorId == 'gravityEdit.markdownEditor'"
+      },
+      {
+        "key": "ctrl+z",
+        "command": "gravityEdit.noOp",
+        "when": "activeCustomEditorId == 'gravityEdit.markdownEditor'"
+      },
+      {
+        "key": "ctrl+shift+z",
+        "command": "gravityEdit.noOp",
+        "when": "activeCustomEditorId == 'gravityEdit.markdownEditor'"
+      },
+      {
+        "key": "ctrl+y",
+        "command": "gravityEdit.noOp",
+        "when": "activeCustomEditorId == 'gravityEdit.markdownEditor'"
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "gravityEdit.markdownEditor",
+        "displayName": "Gravity Markdown Editor",
+        "selector": [{"filenamePattern": "*.md"}],
+        "priority": "option"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build:all",
+    "build:all": "npm run build:webview && npm run compile",
+    "build:webview": "cd webview-ui && npm install && npm run build",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.7.2"
+  }
+}

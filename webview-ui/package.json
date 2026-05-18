@@ -1,0 +1,32 @@
+{
+  "name": "@gravity-edit/webview-ui",
+  "private": true,
+  "version": "0.0.1",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite"
+  },
+  "dependencies": {
+    "@diplodoc/cut-extension": "^1.0.0",
+    "@diplodoc/file-extension": "^0.2.1",
+    "@diplodoc/mermaid-extension": "^2.0.0",
+    "@diplodoc/tabs-extension": "^3.5.1",
+    "@diplodoc/transform": "^4.43.0",
+    "mermaid": "^11.0.0",
+    "@gravity-ui/components": "^4.10.0",
+    "@gravity-ui/markdown-editor": "^15",
+    "highlight.js": "^11.8.0",
+    "lowlight": "^3.0.0",
+    "@gravity-ui/uikit": "^7.1.0",
+    "markdown-it": "^13.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.3.0"
+  }
+}
