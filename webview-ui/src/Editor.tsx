@@ -89,6 +89,12 @@ function LoadedEditor({initialMarkup, docDirRef}: {initialMarkup: string; docDir
       preserveEmptyRows: true,
     },
     wysiwygConfig: {
+      // The default serializer escape regex includes [ and ], causing wiki-style directives
+      // like [[_TOC_]] to be serialized as \[\[_TOC_\]\].
+      escapeConfig: {
+        commonEscape: /[`\^+*\\|~{}<>$]|(?<!\[)\[(?!\[)|(?<!\])\](?!\])/g,
+        //commonEscape: /[`\^+*\\|~{}<>$]/g,
+      },
       extensions: (builder) => {
         builder.use(Mermaid, {
           loadRuntimeScript: () => {
