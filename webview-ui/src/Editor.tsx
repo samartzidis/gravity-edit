@@ -2,6 +2,7 @@ import {useEffect, useRef, useState} from 'react';
 
 import {Mermaid} from '@gravity-ui/markdown-editor/extensions/additional/Mermaid/index.js';
 import {Drawio, WYSIWYG_RESUMED_EVENT} from './DrawioExtension';
+import {MdTableDnd} from './MdTableDnd';
 import {MarkdownEditorView, useMarkdownEditor} from '@gravity-ui/markdown-editor';
 import type {MarkdownEditorMode} from '@gravity-ui/markdown-editor';
 import {Toaster, ThemeProvider, ToasterComponent, ToasterProvider} from '@gravity-ui/uikit';
@@ -103,6 +104,7 @@ function LoadedEditor({initialMarkup, docDirRef}: {initialMarkup: string; docDir
         });
 
         builder.use(Drawio);
+        builder.use(MdTableDnd);
 
         // Intercept VS Code Explorer Shift+drag-drop: insert image, drawio, or file link.
         builder.use((b) => {

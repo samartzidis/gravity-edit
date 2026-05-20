@@ -22,19 +22,7 @@
       "label": "Extension: Launch Extension Development Host",
       "type": "process",
       "command": "code",
-      "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
-      "windows": {
-        "command": "C:\\Program Files\\Microsoft VS Code\\Code.exe",
-        "args": ["--extensionDevelopmentPath=${workspaceFolder}"]
-      },
-      "linux": {
-        "command": "code",
-        "args": ["--extensionDevelopmentPath=${workspaceFolder}"]
-      },
-      "osx": {
-        "command": "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code",
-        "args": ["--extensionDevelopmentPath=${workspaceFolder}"]
-      },
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}", "${workspaceFolder}/demo"],      
       "problemMatcher": [],
       "presentation": {
         "reveal": "silent",
