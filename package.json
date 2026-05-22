@@ -2,7 +2,7 @@
   "name": "gravity-edit",
   "displayName": "Gravity Edit - Visual Markdown Editor",
   "description": "Edit markdown files with the Gravity UI markdown editor, with support for YFM, Mermaid, Draw.io, and more.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "GeorgeSamartzidis",
   "author": "George Samartzidis",
   "license": "MIT",

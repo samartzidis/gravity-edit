@@ -4,6 +4,11 @@ import {Mermaid} from '@gravity-ui/markdown-editor/extensions/additional/Mermaid
 import {Drawio, WYSIWYG_RESUMED_EVENT} from './DrawioExtension';
 import {MdTableDnd} from './MdTableDnd';
 import {MarkdownEditorView, useMarkdownEditor} from '@gravity-ui/markdown-editor';
+import type {ToolbarsPreset} from '@gravity-ui/markdown-editor';
+// The _/* wildcard export is the library's documented pattern for toolbar customisation —
+// the library's own demo (demo/src/stories/presets/presets.ts) uses these same paths.
+import {ActionName as Action} from '@gravity-ui/markdown-editor/_/bundle/config/action-names.js';
+import {full as fullPreset} from '@gravity-ui/markdown-editor/_/modules/toolbars/presets.js';
 import type {MarkdownEditorMode} from '@gravity-ui/markdown-editor';
 import {Toaster, ThemeProvider, ToasterComponent, ToasterProvider} from '@gravity-ui/uikit';
 import '@gravity-ui/uikit/styles/fonts.css';
@@ -20,6 +25,31 @@ import type {ExtensionMessage} from './vscode';
 
 const IMAGE_EXTS = /\.(png|jpe?g|gif|svg|webp|bmp|tiff?)$/i;
 const DRAWIO_EXT = /\.drawio$/i;
+
+const MD_TABLE =
+  '\n| Heading | Heading |\n| ------- | ------- |\n| Text    | Text    |\n| Text    | Text    |\n';
+
+// Extend the full preset, replacing only the table item's handlers so the button
+// inserts standard markdown tables instead of YFM tables.
+const customPreset: ToolbarsPreset = {
+  ...fullPreset,
+  items: {
+    ...fullPreset.items,
+    [Action.table]: {
+      ...fullPreset.items[Action.table],
+      wysiwyg: {
+        exec: (e) => e.actions.createTable.run(),
+        isActive: (e) => e.actions.createTable.isActive(),
+        isEnable: (e) => e.actions.createTable.isEnable(),
+      },
+      markup: {
+        exec: (e) => e.cm.dispatch(e.cm.state.replaceSelection(MD_TABLE)),
+        isActive: () => false,
+        isEnable: () => true,
+      },
+    },
+  },
+};
 
 function isAbsolutePath(s: string): boolean {
   return /^[A-Za-z]:[/\\]/.test(s) || s.startsWith('/');
@@ -239,5 +269,5 @@ function LoadedEditor({initialMarkup, docDirRef}: {initialMarkup: string; docDir
     return () => document.removeEventListener('click', onLinkClick, true);
   }, []);
 
-  return <MarkdownEditorView editor={mdEditor} autofocus stickyToolbar />;
+  return <MarkdownEditorView editor={mdEditor} autofocus stickyToolbar toolbarsPreset={customPreset} />;
 }
