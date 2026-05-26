@@ -136,6 +136,52 @@ function LoadedEditor({initialMarkup, docDirRef}: {initialMarkup: string; docDir
         builder.use(Drawio);
         builder.use(MdTableDnd);
 
+        // Table extension maps Shift-Enter to moveToNextRowCommand, shadowing Breaks; restore hard-break in cells.
+        // hard_break normally serializes as '\\\n' which breaks table row syntax; use <br> inside td/th instead.
+        builder.use((b) => {
+          b.addKeymap(({schema}) => ({
+            'Shift-Enter': (state, dispatch) => {
+              const {$head} = state.selection;
+              for (let d = $head.depth; d >= 0; d--) {
+                const name = $head.node(d).type.name;
+                if (name === 'td' || name === 'th') {
+                  const hb = schema.nodes['hard_break'];
+                  if (!hb) return false;
+                  if (dispatch) dispatch(state.tr.replaceSelectionWith(hb.create()).scrollIntoView());
+                  return true;
+                }
+              }
+              return false;
+            },
+          }), b.Priority.VeryHigh);
+
+          b.overrideNodeSerializerSpec('hard_break', (prev) => (state, node, parent, index) => {
+            if (parent.type.name === 'td' || parent.type.name === 'th') {
+              state.write('<br>');
+              return;
+            }
+            prev(state, node, parent, index);
+          });
+
+          // Round-trip: <br> in markup → hardbreak token → hard_break node (html_inline renders as text, not a break).
+          b.configureMd((md) => {
+            md.core.ruler.push('html_br_to_hardbreak', (state) => {
+              for (const token of state.tokens) {
+                if (token.type !== 'inline' || !token.children) continue;
+                for (const child of token.children) {
+                  if (child.type === 'html_inline' && /^<br\s*\/?>$/i.test(child.content)) {
+                    child.type = 'hardbreak';
+                    child.tag = 'br';
+                    child.content = '';
+                  }
+                }
+              }
+              return false;
+            });
+            return md;
+          });
+        });
+
         // Intercept VS Code Explorer Shift+drag-drop: insert image, drawio, or file link.
         builder.use((b) => {
           b.addPlugin(() => new Plugin({
