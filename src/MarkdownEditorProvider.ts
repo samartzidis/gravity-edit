@@ -211,7 +211,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     div[data-floating-ui-placement]:has([data-qa="g-md-search-panel"]) {
       z-index: 10000 !important;
     }
-    .ProseMirror { padding: 16px !important; }
+    :root { --g-md-editor-padding: 8px 16px 0; }
+    .ProseMirror { padding: 0 !important; }
+    .ProseMirror::after { content: ''; display: block; height: 24px; }
   </style>
 </head>
 <body>
