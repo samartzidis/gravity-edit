@@ -1,4 +1,5 @@
-import {useEffect, useRef, useState} from 'react';
+import {useEffect, useMemo, useRef, useState} from 'react';
+import {Eye, LogoMarkdown} from '@gravity-ui/icons';
 
 import {Mermaid} from '@gravity-ui/markdown-editor/extensions/additional/Mermaid/index.js';
 import {Drawio, WYSIWYG_RESUMED_EVENT} from './DrawioExtension';
@@ -9,6 +10,7 @@ import type {ToolbarsPreset} from '@gravity-ui/markdown-editor';
 // the library's own demo (demo/src/stories/presets/presets.ts) uses these same paths.
 import {ActionName as Action} from '@gravity-ui/markdown-editor/_/bundle/config/action-names.js';
 import {full as fullPreset} from '@gravity-ui/markdown-editor/_/modules/toolbars/presets.js';
+import {ToolbarDataType} from '@gravity-ui/markdown-editor/_/bundle/toolbar/types.js';
 import type {MarkdownEditorMode} from '@gravity-ui/markdown-editor';
 import {Toaster, ThemeProvider, ToasterComponent, ToasterProvider} from '@gravity-ui/uikit';
 import '@gravity-ui/uikit/styles/fonts.css';
@@ -29,31 +31,6 @@ const DRAWIO_EXT = /\.drawio$/i;
 const MD_TABLE =
   '\n| Heading | Heading |\n| ------- | ------- |\n| Text    | Text    |\n| Text    | Text    |\n';
 
-// Extend the full preset, replacing only the table item's handlers so the button
-// inserts standard markdown tables instead of YFM tables.
-const customPreset: ToolbarsPreset = {
-  ...fullPreset,
-  items: {
-    ...fullPreset.items,
-    [Action.table]: {
-      ...fullPreset.items[Action.table],
-      wysiwyg: {
-        exec: (e) => e.actions.createTable.run(),
-        isActive: (e) => e.actions.createTable.isActive(),
-        isEnable: (e) => e.actions.createTable.isEnable(),
-      },
-      markup: {
-        exec: (e) => e.cm.dispatch(e.cm.state.replaceSelection(MD_TABLE)),
-        isActive: () => false,
-        isEnable: () => true,
-      },
-    },
-  },
-};
-
-function isAbsolutePath(s: string): boolean {
-  return /^[A-Za-z]:[/\\]/.test(s) || s.startsWith('/');
-}
 
 function computeRelativePath(fromDir: string, toFile: string): string {
   const norm = (p: string) => p.replace(/\\/g, '/');
@@ -231,6 +208,41 @@ function LoadedEditor({initialMarkup, docDirRef}: {initialMarkup: string; docDir
       },
     },
   });
+
+  const customPreset = useMemo<ToolbarsPreset>(() => ({
+    ...fullPreset,
+    items: {
+      ...fullPreset.items,
+      [Action.table]: {
+        ...fullPreset.items[Action.table],
+        wysiwyg: {
+          exec: (e) => e.actions.createTable.run(),
+          isActive: (e) => e.actions.createTable.isActive(),
+          isEnable: (e) => e.actions.createTable.isEnable(),
+        },
+        markup: {
+          exec: (e) => e.cm.dispatch(e.cm.state.replaceSelection(MD_TABLE)),
+          isActive: () => false,
+          isEnable: () => true,
+        },
+      },
+      switchToWysiwyg: {
+        view: {type: ToolbarDataType.SingleButton, icon: {data: Eye}, title: 'Visual Editor'},
+        wysiwyg: {isActive: () => true,  isEnable: () => true, exec: () => {}},
+        markup:  {isActive: () => false, isEnable: () => true, exec: () => mdEditor.setEditorMode('wysiwyg')},
+      },
+      switchToMarkup: {
+        view: {type: ToolbarDataType.SingleButton, icon: {data: LogoMarkdown}, title: 'Markdown'},
+        wysiwyg: {isActive: () => false, isEnable: () => true, exec: () => mdEditor.setEditorMode('markup')},
+        markup:  {isActive: () => true,  isEnable: () => true, exec: () => {}},
+      },
+    },
+    orders: {
+      ...fullPreset.orders,
+      wysiwygMain: [...fullPreset.orders.wysiwygMain, ['switchToWysiwyg', 'switchToMarkup']],
+      markupMain:  [...fullPreset.orders.markupMain,  ['switchToWysiwyg', 'switchToMarkup']],
+    },
+  }), [mdEditor]);
 
   const applyingExternal = useRef(false);
 
