@@ -1,4 +1,5 @@
 import {useEffect, useMemo, useRef, useState} from 'react';
+import {EditorView} from '@codemirror/view';
 import {Eye, LogoMarkdown} from '@gravity-ui/icons';
 
 import {Mermaid} from '@gravity-ui/markdown-editor/extensions/additional/Mermaid/index.js';
@@ -25,6 +26,40 @@ const toaster = new Toaster();
 import {vscode} from './vscode';
 import type {ExtensionMessage} from './vscode';
 
+// EditorView.theme() has higher priority than baseTheme() in CM6 — overrides the library's gravityTheme.
+const vscodeFontTheme = EditorView.theme({
+  '.cm-content': {
+    fontFamily: 'var(--vscode-editor-font-family) !important',
+    fontSize: 'var(--vscode-editor-font-size) !important',
+  },
+});
+
+type EditorConfig = Extract<ExtensionMessage, {type: 'config'}>;
+
+function buildFontCss(cfg: EditorConfig): string {
+  const gRoot: string[] = [];
+  const prose: string[] = [];
+  const code: string[] = [];
+  if (cfg.fontFamily) {
+    gRoot.push(`--g-font-family-sans: ${cfg.fontFamily};`);
+    prose.push(`font-family: ${cfg.fontFamily};`);
+  }
+  if (cfg.monospaceFontFamily) {
+    gRoot.push(`--g-font-family-monospace: ${cfg.monospaceFontFamily};`);
+    gRoot.push(`--yfm-font-family-monospace: ${cfg.monospaceFontFamily};`);
+  }
+  if (cfg.fontSize > 0) prose.push(`font-size: ${cfg.fontSize}px;`);
+  if (cfg.monospaceFontSize > 0) {
+    gRoot.push(`--g-text-code-2-font-size: ${cfg.monospaceFontSize}px;`);
+    code.push(`font-size: ${cfg.monospaceFontSize}px;`);
+  }
+  const parts: string[] = [];
+  if (gRoot.length) parts.push(`.g-root { ${gRoot.join(' ')} }`);
+  if (prose.length) parts.push(`.ProseMirror { ${prose.join(' ')} }`);
+  if (code.length) parts.push(`.g-root .g-md-editor.ProseMirror pre > code { ${code.join(' ')} }`);
+  return parts.join('\n');
+}
+
 const IMAGE_EXTS = /\.(png|jpe?g|gif|svg|webp|bmp|tiff?)$/i;
 const DRAWIO_EXT = /\.drawio$/i;
 
@@ -44,7 +79,21 @@ function computeRelativePath(fromDir: string, toFile: string): string {
 
 export function Editor() {
   const [initialMarkup, setInitialMarkup] = useState<string | null>(null);
+  const [theme, setTheme] = useState<'light' | 'dark' | 'light-hc' | 'dark-hc'>('light');
+  const [config, setConfig] = useState<EditorConfig | null>(null);
   const docDirRef = useRef('');
+  const styleRef = useRef<HTMLStyleElement | null>(null);
+
+  useEffect(() => {
+    const style = document.createElement('style');
+    document.head.appendChild(style);
+    styleRef.current = style;
+    return () => { style.remove(); styleRef.current = null; };
+  }, []);
+
+  useEffect(() => {
+    if (styleRef.current) styleRef.current.textContent = config ? buildFontCss(config) : '';
+  }, [config]);
 
   // Wait for the first content message before mounting the editor so ProseMirror's
   // undo history never contains an empty-document state.
@@ -65,11 +114,22 @@ export function Editor() {
   }, []);
 
   useEffect(() => {
+    function onConfig(event: MessageEvent<ExtensionMessage>) {
+      const msg = event.data;
+      if (msg.type !== 'config') return;
+      setTheme(msg.theme);
+      setConfig(msg);
+    }
+    window.addEventListener('message', onConfig);
+    return () => window.removeEventListener('message', onConfig);
+  }, []);
+
+  useEffect(() => {
     vscode.postMessage({type: 'ready'});
   }, []);
 
   return (
-    <ThemeProvider theme="light">
+    <ThemeProvider theme={theme}>
       <ToasterProvider toaster={toaster}>
         <ToasterComponent />
         <div style={{height: '100vh', display: 'flex', flexDirection: 'column', position: 'relative'}}>
@@ -95,6 +155,9 @@ function LoadedEditor({initialMarkup, docDirRef}: {initialMarkup: string; docDir
     md: {html: true},
     experimental: {
       preserveEmptyRows: true,
+    },
+    markupConfig: {
+      extensions: [vscodeFontTheme],
     },
     wysiwygConfig: {
       // The default serializer escape regex includes [ and ], causing wiki-style directives

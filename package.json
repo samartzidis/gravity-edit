@@ -2,7 +2,7 @@
   "name": "gravity-edit",
   "displayName": "Gravity Edit - Visual Markdown Editor",
   "description": "Edit markdown files with the Gravity UI markdown editor, with support for YFM, Mermaid, Draw.io, and more.",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "publisher": "GeorgeSamartzidis",
   "author": "George Samartzidis",
   "license": "MIT",
@@ -102,7 +102,45 @@
         "selector": [{"filenamePattern": "*.md"}],
         "priority": "option"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Gravity Edit",
+      "properties": {
+        "gravityEdit.fontFamily": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Font family for prose text in the visual editor. Leave empty to use the library default."
+        },
+        "gravityEdit.monospaceFontFamily": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Font family for code blocks in the visual editor. Leave empty to use the library default. The markdown source editor uses `editor.fontFamily` instead."
+        },
+        "gravityEdit.fontSize": {
+          "type": "number",
+          "default": 0,
+          "markdownDescription": "Font size (px) for prose text in the visual editor. Set to `0` to use the library default."
+        },
+        "gravityEdit.monospaceFontSize": {
+          "type": "number",
+          "default": 0,
+          "markdownDescription": "Font size (px) for code blocks in the visual editor. Set to `0` to use the library default. The markdown source editor uses `editor.fontSize` instead."
+        },
+        "gravityEdit.theme": {
+          "type": "string",
+          "enum": ["auto", "light", "dark", "light-hc", "dark-hc"],
+          "enumDescriptions": [
+            "Follow the active VS Code color theme",
+            "Light",
+            "Dark",
+            "Light high-contrast",
+            "Dark high-contrast"
+          ],
+          "default": "auto",
+          "markdownDescription": "Color theme for the editor. `auto` follows the active VS Code theme."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run build:all",

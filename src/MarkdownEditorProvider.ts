@@ -13,12 +13,38 @@ type WebviewMessage =
 type ExtensionMessage =
   | {type: 'update'; text: string; docDir: string}
   | {type: 'reloadImages'}
+  | {type: 'config'; fontFamily: string; monospaceFontFamily: string; fontSize: number; monospaceFontSize: number; theme: 'light' | 'dark' | 'light-hc' | 'dark-hc'}
   | {type: 'drawioFileContent'; id: string; xml: string}
   | {type: 'drawioFileError'; id: string; error: string};
 
 function getNonce(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   return Array.from({length: 32}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+function resolveTheme(kind: vscode.ColorThemeKind): 'light' | 'dark' | 'light-hc' | 'dark-hc' {
+  switch (kind) {
+    case vscode.ColorThemeKind.Dark: return 'dark';
+    case vscode.ColorThemeKind.HighContrast: return 'dark-hc';
+    case vscode.ColorThemeKind.HighContrastLight: return 'light-hc';
+    default: return 'light';
+  }
+}
+
+function getFontConfig(): ExtensionMessage & {type: 'config'} {
+  const cfg = vscode.workspace.getConfiguration('gravityEdit');
+  const themeSetting = cfg.get<string>('theme', 'auto');
+  const theme = themeSetting === 'auto'
+    ? resolveTheme(vscode.window.activeColorTheme.kind)
+    : themeSetting as 'light' | 'dark' | 'light-hc' | 'dark-hc';
+  return {
+    type: 'config',
+    fontFamily: cfg.get<string>('fontFamily', ''),
+    monospaceFontFamily: cfg.get<string>('monospaceFontFamily', ''),
+    fontSize: cfg.get<number>('fontSize', 0),
+    monospaceFontSize: cfg.get<number>('monospaceFontSize', 0),
+    theme,
+  };
 }
 
 export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
@@ -72,6 +98,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         const text = document.getText();
         log(`Webview ready - sending update (${text.length} chars)`);
         this.postUpdate(webviewPanel.webview, text, docDir.fsPath);
+        void webviewPanel.webview.postMessage(getFontConfig() satisfies ExtensionMessage);
         return;
       }
 
@@ -127,6 +154,16 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     });
 
     // Push external document changes into the webview (e.g. git checkout, other editor)
+    const configSub = vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration('gravityEdit')) {
+        void webviewPanel.webview.postMessage(getFontConfig() satisfies ExtensionMessage);
+      }
+    });
+
+    const themeSub = vscode.window.onDidChangeActiveColorTheme(() => {
+      void webviewPanel.webview.postMessage(getFontConfig() satisfies ExtensionMessage);
+    });
+
     const changeSub = vscode.workspace.onDidChangeTextDocument((e) => {
       if (e.document.uri.toString() !== document.uri.toString()) {
         return;
@@ -150,6 +187,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       log(`Webview disposed: ${document.uri.fsPath}`);
       msgSub.dispose();
       changeSub.dispose();
+      configSub.dispose();
+      themeSub.dispose();
     });
   }
 
@@ -183,7 +222,8 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     // 'unsafe-eval' in script-src is required by viewer-static.min.js (mxGraph/draw.io viewer).
     const csp = [
       `default-src 'none'`,
-      `img-src ${webview.cspSource} data: blob:`,
+      `img-src ${webview.cspSource} data: blob: https: http:`,
+      `media-src https: http: data: blob:`,
       `style-src ${webview.cspSource} 'unsafe-inline'`,
       `font-src ${webview.cspSource} data:`,
       `script-src 'nonce-${nonce}' 'unsafe-eval'`,

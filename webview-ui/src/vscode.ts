@@ -9,6 +9,7 @@ export type WebviewMessage =
 export type ExtensionMessage =
   | {type: 'update'; text: string; docDir: string}
   | {type: 'reloadImages'}
+  | {type: 'config'; fontFamily: string; monospaceFontFamily: string; fontSize: number; monospaceFontSize: number; theme: 'light' | 'dark' | 'light-hc' | 'dark-hc'}
   | {type: 'drawioFileContent'; id: string; xml: string}
   | {type: 'drawioFileError'; id: string; error: string};
 
