@@ -1,6 +1,6 @@
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {EditorView} from '@codemirror/view';
-import {Eye, LogoMarkdown} from '@gravity-ui/icons';
+import {LogoMarkdown, Sliders} from '@gravity-ui/icons';
 
 import {Mermaid} from '@gravity-ui/markdown-editor/extensions/additional/Mermaid/index.js';
 import {Drawio, WYSIWYG_RESUMED_EVENT} from './DrawioExtension';
@@ -10,6 +10,7 @@ import type {ToolbarsPreset} from '@gravity-ui/markdown-editor';
 // The _/* wildcard export is the library's documented pattern for toolbar customisation —
 // the library's own demo (demo/src/stories/presets/presets.ts) uses these same paths.
 import {ActionName as Action} from '@gravity-ui/markdown-editor/_/bundle/config/action-names.js';
+import WysiwygModeIcon from '@gravity-ui/markdown-editor/_/icons/WysiwygMode.js';
 import {full as fullPreset} from '@gravity-ui/markdown-editor/_/modules/toolbars/presets.js';
 import {ToolbarDataType} from '@gravity-ui/markdown-editor/_/bundle/toolbar/types.js';
 import type {MarkdownEditorMode} from '@gravity-ui/markdown-editor';
@@ -147,6 +148,14 @@ export function Editor() {
     </ThemeProvider>
   );
 }
+
+const execOpenSettings = () => vscode.postMessage({type: 'openSettings'});
+
+const openSettingsItem = {
+  view: {type: ToolbarDataType.SingleButton, icon: {data: Sliders}, title: 'Editor Settings'},
+  wysiwyg: {isActive: () => false, isEnable: () => true, exec: execOpenSettings},
+  markup:  {isActive: () => false, isEnable: () => true, exec: execOpenSettings},
+} as const;
 
 function LoadedEditor({initialMarkup, docDirRef}: {initialMarkup: string; docDirRef: React.RefObject<string>}) {
   const mdEditor = useMarkdownEditor({
@@ -290,7 +299,7 @@ function LoadedEditor({initialMarkup, docDirRef}: {initialMarkup: string; docDir
         },
       },
       switchToWysiwyg: {
-        view: {type: ToolbarDataType.SingleButton, icon: {data: Eye}, title: 'Visual Editor'},
+        view: {type: ToolbarDataType.SingleButton, icon: {data: WysiwygModeIcon}, title: 'Visual Editor'},
         wysiwyg: {isActive: () => true,  isEnable: () => true, exec: () => {}},
         markup:  {isActive: () => false, isEnable: () => true, exec: () => mdEditor.setEditorMode('wysiwyg')},
       },
@@ -299,11 +308,12 @@ function LoadedEditor({initialMarkup, docDirRef}: {initialMarkup: string; docDir
         wysiwyg: {isActive: () => false, isEnable: () => true, exec: () => mdEditor.setEditorMode('markup')},
         markup:  {isActive: () => true,  isEnable: () => true, exec: () => {}},
       },
+      openSettings: openSettingsItem,
     },
     orders: {
       ...fullPreset.orders,
-      wysiwygMain: [...fullPreset.orders.wysiwygMain, ['switchToWysiwyg', 'switchToMarkup']],
-      markupMain:  [...fullPreset.orders.markupMain,  ['switchToWysiwyg', 'switchToMarkup']],
+      wysiwygMain: [...fullPreset.orders.wysiwygMain, ['switchToWysiwyg', 'switchToMarkup', 'openSettings']],
+      markupMain:  [...fullPreset.orders.markupMain,  ['switchToWysiwyg', 'switchToMarkup', 'openSettings']],
     },
   }), [mdEditor]);
 

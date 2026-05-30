@@ -3,19 +3,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import {log} from './log';
-
-type WebviewMessage =
-  | {type: 'ready'}
-  | {type: 'edit'; text: string}
-  | {type: 'readDrawioFile'; src: string; id: string}
-  | {type: 'openFile'; src: string};
-
-type ExtensionMessage =
-  | {type: 'update'; text: string; docDir: string}
-  | {type: 'reloadImages'}
-  | {type: 'config'; fontFamily: string; monospaceFontFamily: string; fontSize: number; monospaceFontSize: number; theme: 'light' | 'dark' | 'light-hc' | 'dark-hc'}
-  | {type: 'drawioFileContent'; id: string; xml: string}
-  | {type: 'drawioFileError'; id: string; error: string};
+import type {ExtensionMessage, WebviewMessage} from './webview-protocol';
 
 function getNonce(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -50,12 +38,15 @@ function getFontConfig(): ExtensionMessage & {type: 'config'} {
 export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   static readonly viewType = 'gravityEdit.markdownEditor';
 
-  constructor(private readonly extensionUri: vscode.Uri) {}
+  constructor(
+    private readonly extensionUri: vscode.Uri,
+    private readonly extensionId: string,
+  ) {}
 
   static register(context: vscode.ExtensionContext): vscode.Disposable {
     return vscode.window.registerCustomEditorProvider(
       MarkdownEditorProvider.viewType,
-      new MarkdownEditorProvider(context.extensionUri),
+      new MarkdownEditorProvider(context.extensionUri, context.extension.id),
       {
         webviewOptions: {retainContextWhenHidden: true},
         supportsMultipleEditorsPerDocument: false,
@@ -131,6 +122,12 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           : path.resolve(docDir.fsPath, msg.src);
         log(`openFile: ${absPath}`);
         void vscode.commands.executeCommand('vscode.open', vscode.Uri.file(absPath));
+        return;
+      }
+
+      if (msg.type === 'openSettings') {
+        log('openSettings: opening extension settings');
+        void vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${this.extensionId}`);
         return;
       }
 
