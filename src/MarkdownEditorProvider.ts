@@ -216,7 +216,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     // CSS is injected at runtime by the Vite IIFE bundle (no separate main.css).
     // 'unsafe-inline' in style-src is required for both gravity-ui runtime style injection
     // and the Vite-inlined CSS stylesheet.
-    // 'unsafe-eval' in script-src is required by viewer-static.min.js (mxGraph/draw.io viewer).
+    // 'unsafe-eval' in script-src is required by viewer-static.min.js (mxGraph/draw.io viewer),
+    // and also by the eval() call inside mxStencilRegistry when loading JS shape classes.
+    // 'connect-src' covers the synchronous XHR that mxStencilRegistry makes to fetch stencil
+    // XML and JS shape files on demand from viewer.diagrams.net.
     const csp = [
       `default-src 'none'`,
       `img-src ${webview.cspSource} data: blob: https: http:`,
@@ -224,6 +227,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       `style-src ${webview.cspSource} 'unsafe-inline'`,
       `font-src ${webview.cspSource} data:`,
       `script-src 'nonce-${nonce}' 'unsafe-eval'`,
+      `connect-src ${webview.cspSource} https://viewer.diagrams.net`,
     ].join('; ');
 
     return `<!DOCTYPE html>
@@ -236,6 +240,7 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   <title>Gravity Markdown Editor</title>
   <script nonce="${nonce}">window.onDrawioViewerLoad = function() {};</script>
   <script nonce="${nonce}" src="${viewerJsUri}"></script>
+  <script nonce="${nonce}">mxStencilRegistry.allowEval = true;</script>
   <style>
     html, body, #root { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; }
     /* Reset VS Code webview injected dark styles so Gravity UI light theme takes over */

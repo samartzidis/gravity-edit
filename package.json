@@ -2,16 +2,21 @@
   "name": "gravity-edit",
   "displayName": "Gravity Edit - Visual Markdown Editor",
   "description": "Edit markdown files with the Gravity UI markdown editor, with support for YFM, Mermaid, Draw.io, and more.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "GeorgeSamartzidis",
   "author": "George Samartzidis",
   "license": "MIT",
   "icon": "media/icon.png",
-  "repository": {"type": "git", "url": "https://github.com/samartzidis/gravity-edit"},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samartzidis/gravity-edit"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other"],
+  "categories": [
+    "Other"
+  ],
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
@@ -99,7 +104,11 @@
       {
         "viewType": "gravityEdit.markdownEditor",
         "displayName": "Gravity Markdown Editor",
-        "selector": [{"filenamePattern": "*.md"}],
+        "selector": [
+          {
+            "filenamePattern": "*.md"
+          }
+        ],
         "priority": "option"
       }
     ],
@@ -128,7 +137,13 @@
         },
         "gravityEdit.theme": {
           "type": "string",
-          "enum": ["auto", "light", "dark", "light-hc", "dark-hc"],
+          "enum": [
+            "auto",
+            "light",
+            "dark",
+            "light-hc",
+            "dark-hc"
+          ],
           "enumDescriptions": [
             "Follow the active VS Code color theme",
             "Light",
@@ -147,11 +162,13 @@
     "build:all": "npm run build:webview && npm run compile",
     "build:webview": "cd webview-ui && npm install && npm run build",
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "watch": "tsc -watch -p ./",
+    "package": "npm ci && vsce package"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.9.1",
     "typescript": "^5.7.2"
   }
 }
