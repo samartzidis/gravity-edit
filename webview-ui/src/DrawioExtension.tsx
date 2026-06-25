@@ -67,11 +67,19 @@ export const Drawio: ExtensionAuto = (builder) => {
     }));
 };
 
+function hashXml(str: string): number {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++)
+    hash = (hash * 33) ^ str.charCodeAt(i);
+  return hash >>> 0;
+}
+
 export class WDrawioNodeView {
   dom: HTMLElement;
   private container: HTMLElement;
   private renderId: string;
   private currentSrc: string;
+  private lastRenderedHash: number | null = null;
   private node: PmNode;
 
   private onWindowMessage = (e: MessageEvent<ExtensionMessage>) => {
@@ -135,6 +143,9 @@ export class WDrawioNodeView {
   }
 
   private renderXml(xml: string): void {
+    const hash = hashXml(xml);
+    if (hash === this.lastRenderedHash) return;
+    this.lastRenderedHash = hash;
     const gv = window.GraphViewer;
     if (!gv) {
       this.showError('GraphViewer not loaded');

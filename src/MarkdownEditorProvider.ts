@@ -180,12 +180,18 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       }
     });
 
+    const windowFocusSub = vscode.window.onDidChangeWindowState((state) => {
+      if (state.focused && webviewPanel.visible)
+        void webviewPanel.webview.postMessage({type: 'reloadImages'} satisfies ExtensionMessage);
+    });
+
     webviewPanel.onDidDispose(() => {
       log(`Webview disposed: ${document.uri.fsPath}`);
       msgSub.dispose();
       changeSub.dispose();
       configSub.dispose();
       themeSub.dispose();
+      windowFocusSub.dispose();
     });
   }
 
