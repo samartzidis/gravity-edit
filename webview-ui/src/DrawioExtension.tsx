@@ -96,6 +96,7 @@ export class WDrawioNodeView {
   };
 
   private onWysiwygResumed = () => {
+    this.lastRenderedHash = null;
     this.rerender();
   };
 
