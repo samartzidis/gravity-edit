@@ -161,11 +161,18 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       void webviewPanel.webview.postMessage(getFontConfig() satisfies ExtensionMessage);
     });
 
+    // Push external document changes into the webview (e.g. git checkout, other editor).
     const changeSub = vscode.workspace.onDidChangeTextDocument((e) => {
       if (e.document.uri.toString() !== document.uri.toString()) {
         return;
       }
+      // Suppress the echo of our own WorkspaceEdit (applied when the webview sends 'edit').
       if (ignoreNextChange) {
+        return;
+      }
+      // VS Code fires this event on Ctrl+S even when content is unchanged; skip to avoid
+      // resetting the webview cursor position with a no-op replace().
+      if (e.contentChanges.length === 0) {
         return;
       }
       log(`External document change detected - pushing update to webview`);
