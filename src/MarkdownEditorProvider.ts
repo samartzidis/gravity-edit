@@ -79,7 +79,14 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     webviewPanel.webview.html = this.buildHtml(webviewPanel.webview, webviewDir, drawioDir, docDir);
     log('HTML set on webview panel');
 
-    let ignoreNextChange = false;
+    // Tracks how many webview 'edit' messages have been applied to the document but whose
+    // onDidChangeTextDocument echo we have not yet seen. We need this to avoid an infinite
+    // feedback loop: webview edit → applyEdit → onDidChangeTextDocument → postUpdate →
+    // webview replace() → webview edit → … . A plain boolean is not enough because during
+    // rapid typing (e.g. held-down Backspace) several applyEdit calls can be in-flight at
+    // once; the first .then() to resolve would clear a boolean too early and let a spurious
+    // postUpdate slip through, causing mdEditor.replace() to reset the cursor mid-edit.
+    let pendingEdits = 0;
 
     // Receive messages from webview
     const msgSub = webviewPanel.webview.onDidReceiveMessage((msg: WebviewMessage) => {
@@ -133,7 +140,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
       if (msg.type === 'edit') {
         log(`Edit received (${msg.text.length} chars) - applying WorkspaceEdit`);
-        ignoreNextChange = true;
+        // Increment before applyEdit so onDidChangeTextDocument is already suppressed
+        // by the time the event fires (which can happen before .then() runs).
+        pendingEdits++;
         const edit = new vscode.WorkspaceEdit();
         edit.replace(
           document.uri,
@@ -143,14 +152,14 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
           ),
           msg.text,
         );
-        void vscode.workspace.applyEdit(edit).then((ok) => {
+        void Promise.resolve(vscode.workspace.applyEdit(edit)).then((ok) => {
           log(`WorkspaceEdit applied: ${ok}`);
-          ignoreNextChange = false;
+        }).finally(() => {
+          pendingEdits--;
         });
       }
     });
 
-    // Push external document changes into the webview (e.g. git checkout, other editor)
     const configSub = vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration('gravityEdit')) {
         void webviewPanel.webview.postMessage(getFontConfig() satisfies ExtensionMessage);
@@ -161,13 +170,14 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       void webviewPanel.webview.postMessage(getFontConfig() satisfies ExtensionMessage);
     });
 
-    // Push external document changes into the webview (e.g. git checkout, other editor).
+    // Forward external document changes to the webview (e.g. git checkout, another editor).
+    // Changes originating from the webview itself are excluded via pendingEdits (see above).
     const changeSub = vscode.workspace.onDidChangeTextDocument((e) => {
       if (e.document.uri.toString() !== document.uri.toString()) {
         return;
       }
-      // Suppress the echo of our own WorkspaceEdit (applied when the webview sends 'edit').
-      if (ignoreNextChange) {
+      // This change was caused by one of our own applyEdit calls — skip to break the loop.
+      if (pendingEdits > 0) {
         return;
       }
       // VS Code fires this event on Ctrl+S even when content is unchanged; skip to avoid
