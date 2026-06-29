@@ -158,12 +158,24 @@ const openSettingsItem = {
 } as const;
 
 function LoadedEditor({initialMarkup, docDirRef}: {initialMarkup: string; docDirRef: React.RefObject<string>}) {
+  // The library's `change` event fires synchronously inside the currentMode setter (via
+  // replace() → onDocChange) which is BEFORE `change-editor-mode` is emitted.  We therefore
+  // cannot use `change-editor-mode` to set the suppression flag in time.  The only hook that
+  // fires before the setter — and thus before the spurious `change` — is
+  // `experimental.beforeEditorModeChange`.
+  const modeChangingRef = useRef(false);
+
   const mdEditor = useMarkdownEditor({
     initial: {markup: initialMarkup},
     preset: 'full',
     md: {html: true},
     experimental: {
       preserveEmptyRows: true,
+      beforeEditorModeChange: () => {
+        modeChangingRef.current = true;
+        setTimeout(() => { modeChangingRef.current = false; }, 0);
+        // Returning undefined (not false) lets the mode change proceed.
+      },
     },
     markupConfig: {
       extensions: [vscodeFontTheme],
@@ -321,7 +333,7 @@ function LoadedEditor({initialMarkup, docDirRef}: {initialMarkup: string; docDir
 
   useEffect(() => {
     function onChange() {
-      if (applyingExternal.current) return;
+      if (applyingExternal.current || modeChangingRef.current) return;
       vscode.postMessage({type: 'edit', text: mdEditor.getValue()});
     }
     mdEditor.on('change', onChange);
