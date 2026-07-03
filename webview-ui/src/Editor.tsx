@@ -72,6 +72,14 @@ function isAbsolutePath(s: string): boolean {
   return /^[A-Za-z]:[/\\]/.test(s) || s.startsWith('/');
 }
 
+// Percent-encode a relative path for use as a markdown link destination.
+// CommonMark forbids raw spaces in destinations, and unbalanced ()/# also break
+// or truncate the link in strict parsers, even though the gravity editor's
+// lenient markdown-it accepts them.
+function encodeMdPath(p: string): string {
+  return encodeURI(p).replace(/[()#]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+}
+
 function computeRelativePath(fromDir: string, toFile: string): string {
   const norm = (p: string) => p.replace(/\\/g, '/');
   const a = norm(fromDir).split('/');
@@ -278,12 +286,12 @@ function LoadedEditor({initialMarkup, docDirRef}: {initialMarkup: string; docDir
                     const fakeSlice = new Slice(Fragment.from(imgType.create({src: 'x'})), 0, 0);
                     const insertPos = dropPoint(view.state.doc, dropPos, fakeSlice) ?? dropPos;
                     view.dispatch(
-                      view.state.tr.insert(insertPos, imgType.create({src: relPath, alt: filename})).scrollIntoView(),
+                      view.state.tr.insert(insertPos, imgType.create({src: encodeMdPath(relPath), alt: filename})).scrollIntoView(),
                     );
                   } else {
                     const linkMark = schema.marks['link'];
                     if (!linkMark) return false;
-                    const textNode = schema.text(filename, [linkMark.create({href: relPath})]);
+                    const textNode = schema.text(filename, [linkMark.create({href: encodeMdPath(relPath)})]);
                     view.dispatch(view.state.tr.insert(dropPos, textNode).scrollIntoView());
                   }
 
