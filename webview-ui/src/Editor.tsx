@@ -68,6 +68,10 @@ const MD_TABLE =
   '\n| Heading | Heading |\n| ------- | ------- |\n| Text    | Text    |\n| Text    | Text    |\n';
 
 
+function isAbsolutePath(s: string): boolean {
+  return /^[A-Za-z]:[/\\]/.test(s) || s.startsWith('/');
+}
+
 function computeRelativePath(fromDir: string, toFile: string): string {
   const norm = (p: string) => p.replace(/\\/g, '/');
   const a = norm(fromDir).split('/');
@@ -175,6 +179,7 @@ function LoadedEditor({initialMarkup, docDirRef}: {initialMarkup: string; docDir
         modeChangingRef.current = true;
         setTimeout(() => { modeChangingRef.current = false; }, 0);
         // Returning undefined (not false) lets the mode change proceed.
+        return undefined;
       },
     },
     markupConfig: {
