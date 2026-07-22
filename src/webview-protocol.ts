@@ -4,14 +4,19 @@
 export type WebviewMessage =
   | {type: 'ready'}
   | {type: 'edit'; text: string}
+  | {type: 'flushResponse'; id: number; text: string}
   | {type: 'readDrawioFile'; src: string; id: string}
   | {type: 'openFile'; src: string}
-  | {type: 'openSettings'};
+  | {type: 'openSettings'}
+  | {type: 'openExternal'; url: string}
+  | {type: 'insertDrawio'};
 
 /** Messages sent FROM the extension TO the webview. */
 export type ExtensionMessage =
   | {type: 'update'; text: string; docDir: string}
+  | {type: 'requestFlush'; id: number}
   | {type: 'reloadImages'}
-  | {type: 'config'; fontFamily: string; monospaceFontFamily: string; fontSize: number; monospaceFontSize: number; theme: 'light' | 'dark' | 'light-hc' | 'dark-hc'}
+  | {type: 'config'; fontFamily: string; monospaceFontFamily: string; fontSize: number; monospaceFontSize: number; theme: 'light' | 'dark' | 'light-hc' | 'dark-hc'; preserveEmptyLines: boolean; defaultMode: 'wysiwyg' | 'markup'; preserveMarkupFormatting: boolean; newTableFormat: 'gfm' | 'yfm'; enableSlashCommands: boolean}
   | {type: 'drawioFileContent'; id: string; xml: string}
-  | {type: 'drawioFileError'; id: string; error: string};
+  | {type: 'drawioFileError'; id: string; error: string}
+  | {type: 'drawioFileCreated'; src: string};

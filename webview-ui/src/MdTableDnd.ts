@@ -146,9 +146,16 @@ function makeRowGrip(): HTMLButtonElement {
     return btn;
 }
 
-function buildDecorations(state: EditorState, thType: NodeType, tdType: NodeType): DecorationSet {
+// Shared traversal: `iterate` is either `doc.descendants` (whole document, used once
+// at init) or `doc.nodesBetween(from, to, ...)` (a single table's range, used on every
+// edit inside a table) — both share the same visitor signature.
+function collectGripDecorations(
+    iterate: (visit: (node: Node, pos: number, parent: Node | null, index: number) => boolean | void) => void,
+    thType: NodeType,
+    tdType: NodeType,
+): Decoration[] {
     const decos: Decoration[] = [];
-    state.doc.descendants((node, pos, _parent, index) => {
+    iterate((node, pos, _parent, index) => {
         if (node.type === thType) {
             // Column drag grip — inside every header cell.
             decos.push(Decoration.widget(pos + 1, (view) => {
@@ -179,7 +186,43 @@ function buildDecorations(state: EditorState, thType: NodeType, tdType: NodeType
         }
         return true;
     });
+    return decos;
+}
+
+function buildDecorations(state: EditorState, thType: NodeType, tdType: NodeType): DecorationSet {
+    const decos = collectGripDecorations((visit) => state.doc.descendants(visit), thType, tdType);
     return DecorationSet.create(state.doc, decos);
+}
+
+// Rebuild grips only within [from, to) — used to refresh a single edited table
+// without re-walking the rest of the document.
+function buildDecorationsInRange(
+    doc: Node,
+    from: number,
+    to: number,
+    thType: NodeType,
+    tdType: NodeType,
+): Decoration[] {
+    return collectGripDecorations((visit) => doc.nodesBetween(from, to, visit), thType, tdType);
+}
+
+// Cheap count (no DOM/widget allocation) of grip-eligible cells within [from, to) —
+// used to detect whether a table's row/column count actually changed, so plain text
+// edits inside a cell don't force grip decorations to be torn down and recreated.
+function countGripTargets(doc: Node, from: number, to: number, thType: NodeType, tdType: NodeType): number {
+    let count = 0;
+    doc.nodesBetween(from, to, (node, _pos, _parent, index) => {
+        if (node.type === thType) {
+            count++;
+            return false;
+        }
+        if (node.type === tdType && index === 0) {
+            count++;
+            return false;
+        }
+        return true;
+    });
+    return count;
 }
 
 // ─── drag session ─────────────────────────────────────────────────────────────
@@ -601,10 +644,24 @@ function moveRowToZone(
 
 // ─── plugin ───────────────────────────────────────────────────────────────────
 
+// If `pos` in `doc` falls inside a table, returns that table's own [from, to) range
+// (checked via the resolved ancestor chain — O(tree depth), not a document walk).
+function tableRangeAt(doc: Node, tableType: NodeType, pos: number): {from: number; to: number} | null {
+    const clamped = Math.max(0, Math.min(pos, doc.content.size));
+    const $pos = doc.resolve(clamped);
+    for (let d = $pos.depth; d >= 1; d--) {
+        if ($pos.node(d).type === tableType) {
+            return {from: $pos.before(d), to: $pos.after(d)};
+        }
+    }
+    return null;
+}
+
 function createPlugin(schema: Schema): Plugin {
     const thType = schema.nodes[TableNode.HeaderCell];
     const tdType = schema.nodes[TableNode.DataCell];
-    if (!thType || !tdType) return new Plugin({key: pluginKey});
+    const tableType = schema.nodes[TableNode.Table];
+    if (!thType || !tdType || !tableType) return new Plugin({key: pluginKey});
 
     return new Plugin<DecorationSet>({
         key: pluginKey,
@@ -614,7 +671,67 @@ function createPlugin(schema: Schema): Plugin {
                 return buildDecorations(editorState, thType, tdType);
             },
             apply(tr: Transaction, old: DecorationSet, _prev: EditorState, next: EditorState) {
-                return tr.docChanged ? buildDecorations(next, thType, tdType) : old;
+                if (!tr.docChanged) return old;
+
+                // Cheap position remap for the common case (typing anywhere outside a
+                // table): shift existing grip decorations through the transaction
+                // instead of re-walking any part of the document.
+                let mapped = old.map(tr.mapping, tr.doc);
+
+                // For steps that touched inside (or created) a table, collect that
+                // table's node range, mapped forward to `next.doc` coordinates, so we
+                // only re-walk the touched table's own subtree — not the rest of the
+                // document — to refresh its grips.
+                const touchedRanges: {from: number; to: number}[] = [];
+                for (let i = 0; i < tr.steps.length; i++) {
+                    const step = tr.steps[i] as unknown as {from?: number; to?: number};
+                    if (typeof step.from !== 'number' || typeof step.to !== 'number') continue;
+
+                    const before = tr.docs[i];
+                    const beforeRange =
+                        tableRangeAt(before, tableType, step.from) ??
+                        tableRangeAt(before, tableType, step.to);
+                    if (beforeRange) {
+                        touchedRanges.push({
+                            from: tr.mapping.slice(i).map(beforeRange.from, -1),
+                            to: tr.mapping.slice(i).map(beforeRange.to, 1),
+                        });
+                    }
+
+                    // Also check the position just after this step, in case the step
+                    // created a table where there wasn't one before (e.g. paste).
+                    const after = i + 1 < tr.docs.length ? tr.docs[i + 1] : tr.doc;
+                    const afterPos = tr.mapping.maps[i].map(step.from);
+                    const afterRange = tableRangeAt(after, tableType, afterPos);
+                    if (afterRange) {
+                        touchedRanges.push({
+                            from: tr.mapping.slice(i + 1).map(afterRange.from, -1),
+                            to: tr.mapping.slice(i + 1).map(afterRange.to, 1),
+                        });
+                    }
+                }
+
+                if (!touchedRanges.length) return mapped;
+
+                // Existing grip decorations already have correct positions and DOM
+                // nodes courtesy of `.map()` above. Only rebuild (tear down + recreate
+                // the DOM widgets) a table's grips when its cell count actually
+                // changed — a row/column insert or delete — not for a plain text edit
+                // inside an existing cell, which is the overwhelming majority of
+                // keystrokes typed "inside a table".
+                const docSize = next.doc.content.size;
+                const newDecos: Decoration[] = [];
+                for (const range of touchedRanges) {
+                    const from = Math.max(0, Math.min(range.from, docSize));
+                    const to = Math.max(from, Math.min(range.to, docSize));
+                    const existingCount = mapped.find(from, to).length;
+                    const actualCount = countGripTargets(next.doc, from, to, thType, tdType);
+                    if (existingCount === actualCount) continue;
+                    mapped = mapped.remove(mapped.find(from, to));
+                    newDecos.push(...buildDecorationsInRange(next.doc, from, to, thType, tdType));
+                }
+
+                return newDecos.length ? mapped.add(next.doc, newDecos) : mapped;
             },
         },
 

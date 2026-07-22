@@ -50,6 +50,7 @@ flowchart LR
 ## Build & package
 
 ```bash
+npm install
 npm run build:all
 npx @vscode/vsce package --allow-missing-repository
 ```

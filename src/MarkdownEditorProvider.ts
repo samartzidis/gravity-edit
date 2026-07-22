@@ -5,6 +5,18 @@ import * as vscode from 'vscode';
 import {log} from './log';
 import type {ExtensionMessage, WebviewMessage} from './webview-protocol';
 
+const BLANK_DRAWIO_XML = `<mxfile host="app.diagrams.net">
+  <diagram name="Page-1">
+    <mxGraphModel dx="800" dy="600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
+`;
+
 function getNonce(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   return Array.from({length: 32}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
@@ -32,6 +44,11 @@ function getFontConfig(): ExtensionMessage & {type: 'config'} {
     fontSize: cfg.get<number>('fontSize', 0),
     monospaceFontSize: cfg.get<number>('monospaceFontSize', 0),
     theme,
+    preserveEmptyLines: cfg.get<boolean>('preserveEmptyLines', true),
+    defaultMode: cfg.get<'wysiwyg' | 'markup'>('defaultMode', 'wysiwyg'),
+    preserveMarkupFormatting: cfg.get<boolean>('preserveMarkupFormatting', false),
+    newTableFormat: cfg.get<'gfm' | 'yfm'>('newTableFormat', 'gfm'),
+    enableSlashCommands: cfg.get<boolean>('enableSlashCommands', true),
   };
 }
 
@@ -88,6 +105,13 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     // postUpdate slip through, causing mdEditor.replace() to reset the cursor mid-edit.
     let pendingEdits = 0;
 
+    // Save-time flush: the webview debounces 'edit' posts (serializing the whole document
+    // on every keystroke blocked its UI thread on large files), so at save time the
+    // TextDocument may lag the editor by up to the debounce interval. onWillSaveTextDocument
+    // asks the webview for its current content and contributes the difference as a save edit.
+    let flushSeq = 0;
+    const pendingFlushes = new Map<number, (text: string | null) => void>();
+
     // Receive messages from webview
     const msgSub = webviewPanel.webview.onDidReceiveMessage((msg: WebviewMessage) => {
       log(`Received message from webview: type=${msg.type}`);
@@ -97,6 +121,11 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         log(`Webview ready - sending update (${text.length} chars)`);
         this.postUpdate(webviewPanel.webview, text, docDir.fsPath);
         void webviewPanel.webview.postMessage(getFontConfig() satisfies ExtensionMessage);
+        return;
+      }
+
+      if (msg.type === 'flushResponse') {
+        pendingFlushes.get(msg.id)?.(msg.text);
         return;
       }
 
@@ -132,9 +161,44 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         return;
       }
 
+      if (msg.type === 'insertDrawio') {
+        log('insertDrawio: showing save dialog');
+        void vscode.window.showSaveDialog({
+          defaultUri: vscode.Uri.joinPath(docDir, 'diagram.drawio'),
+          filters: {'Draw.io Diagram': ['drawio']},
+        }).then(async (uri) => {
+          if (!uri) {
+            log('insertDrawio: cancelled');
+            return;
+          }
+          await vscode.workspace.fs.writeFile(uri, Buffer.from(BLANK_DRAWIO_XML, 'utf8'));
+          const src = path.relative(docDir.fsPath, uri.fsPath).replace(/\\/g, '/');
+          log(`insertDrawio: created ${uri.fsPath}, src=${src}`);
+          void webviewPanel.webview.postMessage({type: 'drawioFileCreated', src} satisfies ExtensionMessage);
+        }, (err: unknown) => {
+          const error = err instanceof Error ? err.message : String(err);
+          log(`insertDrawio error: ${error}`);
+        });
+        return;
+      }
+
       if (msg.type === 'openSettings') {
         log('openSettings: opening extension settings');
         void vscode.commands.executeCommand('workbench.action.openSettings', `@ext:${this.extensionId}`);
+        return;
+      }
+
+      if (msg.type === 'openExternal') {
+        // target="_blank" links (e.g. the library's built-in "Documentation" link) are
+        // silently swallowed by the webview iframe's sandbox (no allow-popups), so they
+        // must be forwarded here instead. Restrict to http(s) - this is reachable from
+        // arbitrary library/DOM content, not just our own trusted markup.
+        if (!/^https?:\/\//i.test(msg.url)) {
+          log(`openExternal: rejected non-http(s) URL: ${msg.url}`);
+          return;
+        }
+        log(`openExternal: ${msg.url}`);
+        void vscode.env.openExternal(vscode.Uri.parse(msg.url));
         return;
       }
 
@@ -189,6 +253,40 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       this.postUpdate(webviewPanel.webview, e.document.getText(), docDir.fsPath);
     });
 
+    // Participate in save so a debounce-pending webview edit is included in the saved file.
+    // waitUntil TextEdits are the sanctioned channel here — applyEdit made during this
+    // event is not guaranteed to be included in the save.
+    const willSaveSub = vscode.workspace.onWillSaveTextDocument((e) => {
+      if (e.document.uri.toString() !== document.uri.toString()) {
+        return;
+      }
+      const id = ++flushSeq;
+      log(`onWillSaveTextDocument - requesting webview flush (id=${id})`);
+      e.waitUntil(new Promise<vscode.TextEdit[]>((resolve) => {
+        const finish = (text: string | null) => {
+          if (!pendingFlushes.delete(id)) return; // already finished (response + timeout race)
+          if (text === null || text === e.document.getText()) {
+            resolve([]);
+            return;
+          }
+          log(`Save flush (id=${id}) applying webview content (${text.length} chars)`);
+          // The onDidChangeTextDocument echo of this edit is suppressed webview-side:
+          // an 'update' whose text matches the editor's current value is skipped there.
+          resolve([vscode.TextEdit.replace(
+            new vscode.Range(
+              e.document.positionAt(0),
+              e.document.positionAt(e.document.getText().length),
+            ),
+            text,
+          )]);
+        };
+        pendingFlushes.set(id, finish);
+        // Don't stall the save if the webview never answers (e.g. it was just disposed).
+        setTimeout(() => finish(null), 1000);
+        void webviewPanel.webview.postMessage({type: 'requestFlush', id} satisfies ExtensionMessage);
+      }));
+    });
+
     // Re-fetch images whenever the tab becomes visible (externally edited images)
     webviewPanel.onDidChangeViewState((e) => {
       if (e.webviewPanel.visible) {
@@ -209,6 +307,9 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       configSub.dispose();
       themeSub.dispose();
       windowFocusSub.dispose();
+      willSaveSub.dispose();
+      // Unblock any in-flight save waiting on a webview that will never answer.
+      for (const finish of [...pendingFlushes.values()]) finish(null);
     });
   }
 
@@ -274,6 +375,14 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       Target the Floating UI root that wraps our search panel only.
     */
     div[data-floating-ui-placement]:has([data-qa="g-md-search-panel"]) {
+      z-index: 10000 !important;
+    }
+    /*
+      Same issue for the (?) HelpMark tooltip (e.g. the math toolbar dropdown's
+      "Inline math"/"Math block" hints): its Popover also defaults to z-index 1000,
+      so it renders behind the sticky toolbar instead of over it.
+    */
+    div[data-floating-ui-placement]:has(.g-help-mark__popover) {
       z-index: 10000 !important;
     }
     :root { --g-md-editor-padding: 8px 16px 0; }

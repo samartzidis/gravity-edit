@@ -2,12 +2,22 @@ import type Token from 'markdown-it/lib/token';
 import type {Node as PmNode} from 'prosemirror-model';
 import type {EditorView} from 'prosemirror-view';
 
-import type {ExtensionAuto} from '@gravity-ui/markdown-editor';
+import type {Action, ExtensionAuto} from '@gravity-ui/markdown-editor';
 
 import {vscode} from './vscode';
 import type {ExtensionMessage} from './vscode';
 
 export const WYSIWYG_RESUMED_EVENT = 'gravity-wysiwyg-resumed' as const;
+
+// Registers the 'insertDrawio' action's type on WysiwygEditor.Actions - same declaration-merge
+// pattern the library's own extensions use (e.g. Mermaid's index.d.ts for 'createMermaid').
+declare global {
+  namespace WysiwygEditor {
+    interface Actions {
+      insertDrawio: Action;
+    }
+  }
+}
 
 type GraphViewerGlobal = {
   createViewerForElement(el: HTMLElement): void;
@@ -35,6 +45,13 @@ function drawioMarkdownPlugin(md: {core: {ruler: {push(name: string, fn: (state:
 export const Drawio: ExtensionAuto = (builder) => {
   builder
     .configureMd((md) => md.use(drawioMarkdownPlugin))
+    // Only used for the toolbar button's isEnable check (same rule the library's own
+    // Mermaid action uses) - the actual insertion happens later, via mdEditor.insert(),
+    // once the extension has created the file (see Editor.tsx's drawioItem).
+    .addAction('insertDrawio', () => ({
+      isEnable: (state) => state.selection.empty,
+      run: () => {},
+    }))
     .addNode('drawio', () => ({
       fromMd: {
         tokenSpec: {

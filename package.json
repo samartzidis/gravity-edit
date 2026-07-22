@@ -2,7 +2,7 @@
   "name": "gravity-edit",
   "displayName": "Gravity Edit - Visual Markdown Editor",
   "description": "Edit markdown files with the Gravity UI markdown editor, with support for YFM, Mermaid, Draw.io, and more.",
-  "version": "0.2.9",
+  "version": "0.2.10",
   "publisher": "GeorgeSamartzidis",
   "author": "George Samartzidis",
   "license": "MIT",
@@ -162,6 +162,47 @@
           ],
           "default": "auto",
           "markdownDescription": "Color theme for the editor. `auto` follows the active VS Code theme."
+        },
+        "gravityEdit.preserveEmptyLines": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Preserve intentionally blank lines when editing in visual mode (an empty paragraph is saved as `&nbsp;` so it survives being reopened, instead of being collapsed like an ordinary blank markdown line). Takes effect the next time a file is opened."
+        },
+        "gravityEdit.defaultMode": {
+          "type": "string",
+          "enum": [
+            "wysiwyg",
+            "markup"
+          ],
+          "enumDescriptions": [
+            "Open files in the visual (WYSIWYG) editor",
+            "Open files in the markdown source editor"
+          ],
+          "default": "wysiwyg",
+          "markdownDescription": "Which editor mode a file opens in. Takes effect the next time a file is opened."
+        },
+        "gravityEdit.preserveMarkupFormatting": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Preserve the original markdown formatting of unmodified tables instead of reformatting them on save. This is an experimental upstream editor feature. Takes effect the next time a file is opened."
+        },
+        "gravityEdit.newTableFormat": {
+          "type": "string",
+          "enum": [
+            "gfm",
+            "yfm"
+          ],
+          "enumDescriptions": [
+            "Standard markdown pipe table (| a | b |)",
+            "Diplodoc YFM table (#| |# syntax, supports merged cells)"
+          ],
+          "default": "gfm",
+          "markdownDescription": "Format used when inserting a new table from the toolbar or the `/` command menu in visual mode. Does not affect the raw-markdown table snippet inserted in source mode, which is always standard markdown. Takes effect the next time a file is opened."
+        },
+        "gravityEdit.enableSlashCommands": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Enable the `/` command menu for inserting elements (tables, Mermaid diagrams, math, etc.) in visual mode. Takes effect the next time a file is opened."
         }
       }
     }
