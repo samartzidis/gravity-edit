@@ -293,7 +293,7 @@ function LoadedEditor({initialMarkup, docDirRef, config}: {initialMarkup: string
           },
         });
 
-        builder.use(Drawio);
+        builder.use(Drawio, {autoFitWidth: config.drawioAutoFitWidth});
         builder.use(MdTableDnd);
 
         // Table extension maps Shift-Enter to moveToNextRowCommand, shadowing Breaks; restore hard-break in cells.
@@ -602,6 +602,18 @@ function LoadedEditor({initialMarkup, docDirRef, config}: {initialMarkup: string
         // sandbox silently blocks (no allow-popups) - forward it to the extension host.
         e.preventDefault();
         e.stopPropagation();
+        // The follow-link button's href is the raw markdown link destination (unresolved -
+        // `<base href>` only affects the resolved `.href` property, not getAttribute), so a
+        // schemeless value here means a relative link to a local file (e.g. another .md doc).
+        // Open those directly via the IDE instead of round-tripping through openExternal,
+        // which would otherwise see the `<base href>`-resolved https://...vscode-resource...
+        // URL and hand it to the system browser.
+        const rawHref = anchor.getAttribute('href') ?? '';
+        const [rawPath] = rawHref.split('#');
+        if (rawPath && !/^[a-z][a-z0-9+.-]*:/i.test(rawPath)) {
+          vscode.postMessage({type: 'openFile', src: decodeURIComponent(rawPath)});
+          return;
+        }
         vscode.postMessage({type: 'openExternal', url: (anchor as HTMLAnchorElement).href});
         return;
       }

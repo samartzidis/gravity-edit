@@ -2,7 +2,7 @@
   "name": "gravity-edit",
   "displayName": "Gravity Edit - Visual Markdown Editor",
   "description": "Edit markdown files with the Gravity UI markdown editor, with support for YFM, Mermaid, Draw.io, and more.",
-  "version": "0.2.10",
+  "version": "0.2.12",
   "publisher": "GeorgeSamartzidis",
   "author": "George Samartzidis",
   "license": "MIT",
@@ -203,6 +203,24 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "Enable the `/` command menu for inserting elements (tables, Mermaid diagrams, math, etc.) in visual mode. Takes effect the next time a file is opened."
+        },
+        "gravityEdit.drawioAutoFitWidth": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Automatically scale draw.io diagrams to fit the visual editor's width. Disable to render diagrams at their native size with a horizontal scrollbar when they overflow. Takes effect the next time a file is opened."
+        },
+        "gravityEdit.openMdLinksIn": {
+          "type": "string",
+          "enum": [
+            "gravityEdit",
+            "systemDefault"
+          ],
+          "enumDescriptions": [
+            "Always open in Gravity Markdown Editor",
+            "Open using VS Code's normal default editor for .md files"
+          ],
+          "default": "gravityEdit",
+          "markdownDescription": "How to open a link to another `.md` file clicked inside the visual editor."
         }
       }
     }

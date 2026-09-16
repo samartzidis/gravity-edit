@@ -16,7 +16,7 @@ export type ExtensionMessage =
   | {type: 'update'; text: string; docDir: string}
   | {type: 'requestFlush'; id: number}
   | {type: 'reloadImages'}
-  | {type: 'config'; fontFamily: string; monospaceFontFamily: string; fontSize: number; monospaceFontSize: number; theme: 'light' | 'dark' | 'light-hc' | 'dark-hc'; preserveEmptyLines: boolean; defaultMode: 'wysiwyg' | 'markup'; preserveMarkupFormatting: boolean; newTableFormat: 'gfm' | 'yfm'; enableSlashCommands: boolean}
+  | {type: 'config'; fontFamily: string; monospaceFontFamily: string; fontSize: number; monospaceFontSize: number; theme: 'light' | 'dark' | 'light-hc' | 'dark-hc'; preserveEmptyLines: boolean; defaultMode: 'wysiwyg' | 'markup'; preserveMarkupFormatting: boolean; newTableFormat: 'gfm' | 'yfm'; enableSlashCommands: boolean; drawioAutoFitWidth: boolean}
   | {type: 'drawioFileContent'; id: string; xml: string}
   | {type: 'drawioFileError'; id: string; error: string}
   | {type: 'drawioFileCreated'; src: string};

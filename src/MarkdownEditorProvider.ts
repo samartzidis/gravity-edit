@@ -17,6 +17,19 @@ const BLANK_DRAWIO_XML = `<mxfile host="app.diagrams.net">
 </mxfile>
 `;
 
+// The webview's markdown-editor always serializes with '\n' only (hardcoded in the
+// library's MarkdownSerializerState, no config option) regardless of the document's
+// actual line ending. Without normalizing document text to LF before comparing it
+// against webview-originated text, a CRLF document would never textually match,
+// breaking the self-echo checks this file and Editor.tsx rely on to avoid resetting
+// the WYSIWYG cursor on every save. Trade-off accepted: since we always write the
+// webview's LF-only text back into the document verbatim (see the 'edit' handler and
+// the save-flush below), a CRLF file's line endings get silently converted to LF the
+// first time it's edited through Gravity Editor.
+function toLf(text: string): string {
+  return text.replace(/\r\n/g, '\n');
+}
+
 function getNonce(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   return Array.from({length: 32}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
@@ -49,6 +62,7 @@ function getFontConfig(): ExtensionMessage & {type: 'config'} {
     preserveMarkupFormatting: cfg.get<boolean>('preserveMarkupFormatting', false),
     newTableFormat: cfg.get<'gfm' | 'yfm'>('newTableFormat', 'gfm'),
     enableSlashCommands: cfg.get<boolean>('enableSlashCommands', true),
+    drawioAutoFitWidth: cfg.get<boolean>('drawioAutoFitWidth', true),
   };
 }
 
@@ -96,14 +110,23 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     webviewPanel.webview.html = this.buildHtml(webviewPanel.webview, webviewDir, drawioDir, docDir);
     log('HTML set on webview panel');
 
-    // Tracks how many webview 'edit' messages have been applied to the document but whose
-    // onDidChangeTextDocument echo we have not yet seen. We need this to avoid an infinite
-    // feedback loop: webview edit → applyEdit → onDidChangeTextDocument → postUpdate →
-    // webview replace() → webview edit → … . A plain boolean is not enough because during
-    // rapid typing (e.g. held-down Backspace) several applyEdit calls can be in-flight at
-    // once; the first .then() to resolve would clear a boolean too early and let a spurious
-    // postUpdate slip through, causing mdEditor.replace() to reset the cursor mid-edit.
-    let pendingEdits = 0;
+    // The document content we last wrote or observed (LF-normalized, see toLf above).
+    // onDidChangeTextDocument compares against this single value to tell "new information"
+    // (a genuinely external change, e.g. git checkout / another editor - push it to the
+    // webview) apart from "nothing new" (our own edit's echo, or a true no-op like VS
+    // Code's benign Ctrl+S-with-nothing-changed event) - one canonical comparison instead
+    // of a pendingEdits counter plus a separate contentChanges.length check. Every write
+    // site below updates this synchronously, right when it decides what to write, before
+    // the write's async result is known.
+    // Accepted trade-off: two forced flushes firing back-to-back (e.g. blur and tab-hidden
+    // in quick succession) can each post an 'edit'; if their onDidChangeTextDocument echoes
+    // fire in submission order, the first echo may transiently mismatch (lastKnownText has
+    // already advanced to the second edit's target), causing one spurious postUpdate before
+    // the second echo re-converges. This only happens when forced flushes overlap - never
+    // from typing alone (single-flight due to the debounce) - i.e. specifically when the
+    // user has already left the WYSIWYG surface, so the transient isn't visible, and it
+    // self-corrects within the same event-loop turn.
+    let lastKnownText = toLf(document.getText());
 
     // Save-time flush: the webview debounces 'edit' posts (serializing the whole document
     // on every keystroke blocked its UI thread on large files), so at save time the
@@ -156,8 +179,20 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         const absPath = path.isAbsolute(msg.src)
           ? msg.src
           : path.resolve(docDir.fsPath, msg.src);
-        log(`openFile: ${absPath}`);
-        void vscode.commands.executeCommand('vscode.open', vscode.Uri.file(absPath));
+        const uri = vscode.Uri.file(absPath);
+        const openMdLinksIn = vscode.workspace.getConfiguration('gravityEdit')
+          .get<'gravityEdit' | 'systemDefault'>('openMdLinksIn', 'gravityEdit');
+        if (absPath.toLowerCase().endsWith('.md') && openMdLinksIn === 'gravityEdit') {
+          // Force Gravity Editor for markdown targets reached from inside this webview
+          // (link follow), independent of the extension's customEditors `priority` -
+          // which stays "option" so unrelated .md opens (Explorer, other extensions)
+          // are unaffected. gravityEdit.openMdLinksIn opts out per-user.
+          log(`openFile: ${absPath} (opening with ${MarkdownEditorProvider.viewType})`);
+          void vscode.commands.executeCommand('vscode.openWith', uri, MarkdownEditorProvider.viewType);
+        } else {
+          log(`openFile: ${absPath}`);
+          void vscode.commands.executeCommand('vscode.open', uri);
+        }
         return;
       }
 
@@ -204,9 +239,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
 
       if (msg.type === 'edit') {
         log(`Edit received (${msg.text.length} chars) - applying WorkspaceEdit`);
-        // Increment before applyEdit so onDidChangeTextDocument is already suppressed
-        // by the time the event fires (which can happen before .then() runs).
-        pendingEdits++;
+        // Set before applyEdit so the resulting onDidChangeTextDocument (which can fire
+        // before .then() runs) already matches lastKnownText and is recognized as "nothing
+        // new" rather than misread as an external change.
+        lastKnownText = msg.text;
         const edit = new vscode.WorkspaceEdit();
         edit.replace(
           document.uri,
@@ -218,8 +254,11 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
         );
         void Promise.resolve(vscode.workspace.applyEdit(edit)).then((ok) => {
           log(`WorkspaceEdit applied: ${ok}`);
-        }).finally(() => {
-          pendingEdits--;
+          if (!ok) {
+            // The write never happened - resync so a later external change isn't
+            // silently swallowed by comparing against this now-stale optimistic value.
+            lastKnownText = toLf(document.getText());
+          }
         });
       }
     });
@@ -235,20 +274,18 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     });
 
     // Forward external document changes to the webview (e.g. git checkout, another editor).
-    // Changes originating from the webview itself are excluded via pendingEdits (see above).
+    // Changes originating from the webview itself are excluded via lastKnownText (see above).
     const changeSub = vscode.workspace.onDidChangeTextDocument((e) => {
       if (e.document.uri.toString() !== document.uri.toString()) {
         return;
       }
-      // This change was caused by one of our own applyEdit calls — skip to break the loop.
-      if (pendingEdits > 0) {
+      const currentText = toLf(e.document.getText());
+      // Nothing new: either the echo of our own edit/flush, or a true no-op (e.g. VS
+      // Code's benign Ctrl+S-with-nothing-changed event, which leaves the text unchanged).
+      if (currentText === lastKnownText) {
         return;
       }
-      // VS Code fires this event on Ctrl+S even when content is unchanged; skip to avoid
-      // resetting the webview cursor position with a no-op replace().
-      if (e.contentChanges.length === 0) {
-        return;
-      }
+      lastKnownText = currentText;
       log(`External document change detected - pushing update to webview`);
       this.postUpdate(webviewPanel.webview, e.document.getText(), docDir.fsPath);
     });
@@ -265,11 +302,12 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       e.waitUntil(new Promise<vscode.TextEdit[]>((resolve) => {
         const finish = (text: string | null) => {
           if (!pendingFlushes.delete(id)) return; // already finished (response + timeout race)
-          if (text === null || text === e.document.getText()) {
+          if (text === null || text === lastKnownText) {
             resolve([]);
             return;
           }
           log(`Save flush (id=${id}) applying webview content (${text.length} chars)`);
+          lastKnownText = text;
           // The onDidChangeTextDocument echo of this edit is suppressed webview-side:
           // an 'update' whose text matches the editor's current value is skipped there.
           resolve([vscode.TextEdit.replace(
@@ -314,7 +352,10 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
   }
 
   private postUpdate(webview: vscode.Webview, text: string, docDir: string): void {
-    const msg: ExtensionMessage = {type: 'update', text, docDir};
+    // Normalize to '\n' - the webview's markdown-editor always serializes with LF only
+    // (see toLf above), so this keeps every 'update' consistent with what the webview
+    // itself would produce, regardless of the document's actual line ending.
+    const msg: ExtensionMessage = {type: 'update', text: toLf(text), docDir};
     void webview.postMessage(msg).then(
       (delivered) => log(`postMessage(update) delivered=${delivered}`),
     );

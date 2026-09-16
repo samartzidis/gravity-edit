@@ -42,7 +42,9 @@ function drawioMarkdownPlugin(md: {core: {ruler: {push(name: string, fn: (state:
   });
 }
 
-export const Drawio: ExtensionAuto = (builder) => {
+export type DrawioOptions = {autoFitWidth: boolean};
+
+export const Drawio: ExtensionAuto<DrawioOptions> = (builder, options) => {
   builder
     .configureMd((md) => md.use(drawioMarkdownPlugin))
     // Only used for the toolbar button's isEnable check (same rule the library's own
@@ -80,7 +82,7 @@ export const Drawio: ExtensionAuto = (builder) => {
         state.ensureNewLine();
       },
       view: () => (node: PmNode, view: EditorView, getPos: () => number | undefined) =>
-        new WDrawioNodeView(node, view, getPos),
+        new WDrawioNodeView(node, view, getPos, options.autoFitWidth),
     }));
 };
 
@@ -129,7 +131,7 @@ export class WDrawioNodeView {
     vscode.postMessage({type: 'openFile', src});
   };
 
-  constructor(node: PmNode, _view: EditorView, _getPos: () => number | undefined) {
+  constructor(node: PmNode, _view: EditorView, _getPos: () => number | undefined, private autoFitWidth: boolean) {
     this.node = node;
     this.currentSrc = String(node.attrs.src);
     this.renderId = crypto.randomUUID();
@@ -176,8 +178,16 @@ export class WDrawioNodeView {
       xml,
       lightbox: false,
       nav: false,
-      'toolbar-nohide': false,
+      // 1 (not just a truthy boolean) also makes the viewer keep container overflow fixed
+      // at "visible" instead of dynamically toggling "auto"/"hidden" based on a fit check
+      // that's off-by-a-pixel for some diagrams, which otherwise shows a barely-scrollable
+      // horizontal scrollbar even though the diagram already fits its container.
+      'toolbar-nohide': 1,
       'auto-fit': true,
+      responsive: this.autoFitWidth,
+      // Cap the responsive scaling at the diagram's natural size so a small diagram is
+      // never stretched to fill the available width - only shrunk when it overflows it.
+      'responsive-max-scale': this.autoFitWidth ? 1 : undefined,
     }));
     this.container.appendChild(div);
     try {
