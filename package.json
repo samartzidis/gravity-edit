@@ -1,0 +1,244 @@
+{
+  "name": "gravity-edit",
+  "displayName": "Gravity Edit - Visual Markdown Editor",
+  "description": "Edit markdown files with the Gravity UI markdown editor, with support for YFM, Mermaid, Draw.io, and more.",
+  "version": "0.2.15",
+  "publisher": "GeorgeSamartzidis",
+  "author": "George Samartzidis",
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samartzidis/gravity-edit"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "gravityEdit.openWithGravity",
+        "title": "Open With Gravity Editor",
+        "category": "Gravity Edit"
+      },
+      {
+        "command": "gravityEdit.noOp",
+        "title": "No-op (editor keyboard passthrough)",
+        "category": "Gravity Edit"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "gravityEdit.openWithGravity",
+          "when": "resourceExtname == .md",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "gravityEdit.openWithGravity",
+          "when": "editorLangId == markdown",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "key": "ctrl+b",
+        "command": "gravityEdit.noOp",
+        "when": "activeCustomEditorId == 'gravityEdit.markdownEditor'"
+      },
+      {
+        "key": "ctrl+e",
+        "command": "gravityEdit.noOp",
+        "when": "activeCustomEditorId == 'gravityEdit.markdownEditor'"
+      },
+      {
+        "key": "ctrl+e",
+        "command": "-cursor.toggleAgentWindowIDEUnification"
+      },
+      {
+        "key": "ctrl+k",
+        "command": "gravityEdit.noOp",
+        "when": "activeCustomEditorId == 'gravityEdit.markdownEditor'"
+      },
+      {
+        "key": "ctrl+shift+s",
+        "command": "gravityEdit.noOp",
+        "when": "activeCustomEditorId == 'gravityEdit.markdownEditor'"
+      },
+      {
+        "key": "ctrl+shift+e",
+        "command": "gravityEdit.noOp",
+        "when": "activeCustomEditorId == 'gravityEdit.markdownEditor'"
+      },
+      {
+        "key": "ctrl+shift+m",
+        "command": "gravityEdit.noOp",
+        "when": "activeCustomEditorId == 'gravityEdit.markdownEditor'"
+      },
+      {
+        "key": "ctrl+shift+l",
+        "command": "gravityEdit.noOp",
+        "when": "activeCustomEditorId == 'gravityEdit.markdownEditor'"
+      },
+      {
+        "key": "ctrl+z",
+        "command": "gravityEdit.noOp",
+        "when": "activeCustomEditorId == 'gravityEdit.markdownEditor'"
+      },
+      {
+        "key": "ctrl+shift+z",
+        "command": "gravityEdit.noOp",
+        "when": "activeCustomEditorId == 'gravityEdit.markdownEditor'"
+      },
+      {
+        "key": "ctrl+y",
+        "command": "gravityEdit.noOp",
+        "when": "activeCustomEditorId == 'gravityEdit.markdownEditor'"
+      },
+      {
+        "key": "ctrl+i",
+        "command": "gravityEdit.noOp",
+        "when": "activeCustomEditorId == 'gravityEdit.markdownEditor'"
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "gravityEdit.markdownEditor",
+        "displayName": "Gravity Markdown Editor",
+        "selector": [
+          {
+            "filenamePattern": "*.md"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
+    "configuration": {
+      "title": "Gravity Edit",
+      "properties": {
+        "gravityEdit.fontFamily": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Font family for prose text in the visual editor. Leave empty to use the library default."
+        },
+        "gravityEdit.monospaceFontFamily": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Font family for code blocks in the visual editor. Leave empty to use the library default. The markdown source editor uses `editor.fontFamily` instead."
+        },
+        "gravityEdit.fontSize": {
+          "type": "number",
+          "default": 0,
+          "markdownDescription": "Font size (px) for prose text in the visual editor. Set to `0` to use the library default."
+        },
+        "gravityEdit.monospaceFontSize": {
+          "type": "number",
+          "default": 0,
+          "markdownDescription": "Font size (px) for code blocks in the visual editor. Set to `0` to use the library default. The markdown source editor uses `editor.fontSize` instead."
+        },
+        "gravityEdit.theme": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "light",
+            "dark",
+            "light-hc",
+            "dark-hc"
+          ],
+          "enumDescriptions": [
+            "Follow the active VS Code color theme",
+            "Light",
+            "Dark",
+            "Light high-contrast",
+            "Dark high-contrast"
+          ],
+          "default": "auto",
+          "markdownDescription": "Color theme for the editor. `auto` follows the active VS Code theme."
+        },
+        "gravityEdit.preserveEmptyLines": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Preserve intentionally blank lines when editing in visual mode (an empty paragraph is saved as `&nbsp;` so it survives being reopened, instead of being collapsed like an ordinary blank markdown line). Takes effect the next time a file is opened."
+        },
+        "gravityEdit.defaultMode": {
+          "type": "string",
+          "enum": [
+            "wysiwyg",
+            "markup"
+          ],
+          "enumDescriptions": [
+            "Open files in the visual (WYSIWYG) editor",
+            "Open files in the markdown source editor"
+          ],
+          "default": "wysiwyg",
+          "markdownDescription": "Which editor mode a file opens in. Takes effect the next time a file is opened."
+        },
+        "gravityEdit.preserveMarkupFormatting": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Preserve the original markdown formatting of unmodified tables instead of reformatting them on save. This is an experimental upstream editor feature. Takes effect the next time a file is opened."
+        },
+        "gravityEdit.newTableFormat": {
+          "type": "string",
+          "enum": [
+            "gfm",
+            "yfm"
+          ],
+          "enumDescriptions": [
+            "Standard markdown pipe table (| a | b |)",
+            "Diplodoc YFM table (#| |# syntax, supports merged cells)"
+          ],
+          "default": "gfm",
+          "markdownDescription": "Format used when inserting a new table from the toolbar or the `/` command menu in visual mode. Does not affect the raw-markdown table snippet inserted in source mode, which is always standard markdown. Takes effect the next time a file is opened."
+        },
+        "gravityEdit.enableSlashCommands": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Enable the `/` command menu for inserting elements (tables, Mermaid diagrams, math, etc.) in visual mode. Takes effect the next time a file is opened."
+        },
+        "gravityEdit.drawioAutoFitWidth": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Automatically scale draw.io diagrams to fit the visual editor's width. Disable to render diagrams at their native size with a horizontal scrollbar when they overflow. Takes effect the next time a file is opened."
+        },
+        "gravityEdit.openMdLinksIn": {
+          "type": "string",
+          "enum": [
+            "gravityEdit",
+            "systemDefault"
+          ],
+          "enumDescriptions": [
+            "Always open in Gravity Markdown Editor",
+            "Open using VS Code's normal default editor for .md files"
+          ],
+          "default": "gravityEdit",
+          "markdownDescription": "How to open a link to another `.md` file clicked inside the visual editor."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build:all",
+    "build:all": "npm run build:webview && npm run compile",
+    "build:webview": "cd webview-ui && npm install && npm run build",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "npm ci && vsce package",
+    "install:vsix": "node -e \"const {name,version}=require('./package.json');require('child_process').execSync('code --install-extension '+name+'-'+version+'.vsix --force',{stdio:'inherit'})\"",
+    "uninstall:vsix": "code --uninstall-extension GeorgeSamartzidis.gravity-edit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.9.1",
+    "typescript": "^5.7.2"
+  }
+}
