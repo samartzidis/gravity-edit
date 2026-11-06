@@ -33,3 +33,5 @@ Thumbs.db
 .vscode/launch.json
 .vscode/extensions.json
 
+# Other
+.memory
