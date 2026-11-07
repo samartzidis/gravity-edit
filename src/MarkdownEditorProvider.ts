@@ -516,6 +516,16 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     div[data-floating-ui-placement]:has(.g-help-mark__popover) {
       z-index: 10000 !important;
     }
+    /*
+      Same issue for the image popups: the edit-image form (opened from the image's "..." menu),
+      that menu itself, and the toolbar's insert-image form. All are default-z-index Popups that
+      can land underneath the sticky toolbar when the image sits near the top of the viewport.
+    */
+    div[data-floating-ui-placement]:has(.g-md-image-tooltip-form),
+    div[data-floating-ui-placement]:has(.g-md-image-form),
+    div[data-floating-ui-placement]:has([data-qa="g-md-image-settings-menu"]) {
+      z-index: 10000 !important;
+    }
     :root { --g-md-editor-padding: 8px 16px 0; }
     .ProseMirror { padding: 0 !important; }
     .ProseMirror::after { content: ''; display: block; height: 24px; }
