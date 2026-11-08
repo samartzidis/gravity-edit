@@ -2,7 +2,7 @@
   "name": "gravity-edit",
   "displayName": "Gravity Edit - Visual Markdown Editor",
   "description": "Edit markdown files with the Gravity UI markdown editor, with support for YFM, Mermaid, Draw.io, and more.",
-  "version": "0.2.16",
+  "version": "0.2.17",
   "publisher": "GeorgeSamartzidis",
   "author": "George Samartzidis",
   "license": "MIT",
@@ -231,14 +231,29 @@
     "build:webview": "cd webview-ui && npm install && npm run build",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
+    "test": "npm run typecheck:test && npm run test:host && npm run test:webview",
+    "typecheck:test": "tsc -p tsconfig.test.json && npm --prefix webview-ui run typecheck:test",
+    "test:all": "npm test && npm run build:all && npm run test:e2e && npm run test:integration",
+    "test:host": "vitest run",
+    "test:webview": "npm --prefix webview-ui test",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:integration": "npm run compile && tsc -p tsconfig.integration.json && vscode-test",
+    "test:timings": "playwright test -c playwright.timings.config.ts",
+    "check:build": "node scripts/checkBuild.mjs",
     "package": "npm ci && vsce package",
     "install:vsix": "node -e \"const {name,version}=require('./package.json');require('child_process').execSync('code --install-extension '+name+'-'+version+'.vsix --force',{stdio:'inherit'})\"",
     "uninstall:vsix": "code --uninstall-extension GeorgeSamartzidis.gravity-edit"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "@types/mocha": "^10.0.10",
     "@types/node": "^22.10.0",
     "@types/vscode": "^1.85.0",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.9.1",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^3.2.7"
   }
 }

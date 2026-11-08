@@ -17,6 +17,7 @@ import {
 } from '@gravity-ui/markdown-editor-latex-extension/configs';
 import {Drawio, WYSIWYG_RESUMED_EVENT} from './DrawioExtension';
 import {MdTableDnd} from './MdTableDnd';
+import {computeRelativePath, encodeMdPath, escapeTableCellPipes, isAbsolutePath, splitFrontmatter} from './markdownUtils';
 import {MarkdownEditorView, useMarkdownEditor, wysiwygToolbarConfigs} from '@gravity-ui/markdown-editor';
 import type {ToolbarsPreset} from '@gravity-ui/markdown-editor';
 // The _/* wildcard export is the library's documented pattern for toolbar customisation —
@@ -106,28 +107,6 @@ const DRAWIO_EXT = /\.drawio$/i;
 const MD_TABLE =
   '\n| Heading | Heading |\n| ------- | ------- |\n| Text    | Text    |\n| Text    | Text    |\n';
 
-
-function isAbsolutePath(s: string): boolean {
-  return /^[A-Za-z]:[/\\]/.test(s) || s.startsWith('/');
-}
-
-// Percent-encode a relative path for use as a markdown link destination.
-// CommonMark forbids raw spaces in destinations, and unbalanced ()/# also break
-// or truncate the link in strict parsers, even though the gravity editor's
-// lenient markdown-it accepts them.
-function encodeMdPath(p: string): string {
-  return encodeURI(p).replace(/[()#]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase());
-}
-
-function computeRelativePath(fromDir: string, toFile: string): string {
-  const norm = (p: string) => p.replace(/\\/g, '/');
-  const a = norm(fromDir).split('/');
-  const b = norm(toFile).split('/');
-  let i = 0;
-  while (i < a.length && i < b.length && a[i].toLowerCase() === b[i].toLowerCase()) i++;
-  const ups = Array(a.length - i).fill('..');
-  return [...ups, ...b.slice(i)].join('/') || '.';
-}
 
 export function Editor() {
   const [initialMarkup, setInitialMarkup] = useState<string | null>(null);
@@ -224,17 +203,6 @@ const drawioItem = {
   wysiwyg: drawioWysiwygHandlers,
   markup:  {isActive: () => false, isEnable: () => true, exec: execInsertDrawio},
 } as const;
-
-// YAML frontmatter (`---` ... `---` at the very start) isn't understood by the markdown parser and
-// would be mangled on serialize (read as hr + heading). It is split off before the editor sees
-// the text and re-attached verbatim when the text is read back.
-const FRONTMATTER_RE = /^---[ \t]*\n[\s\S]*?\n(?:---|\.\.\.)[ \t]*(?:\n|$)/;
-
-function splitFrontmatter(text: string): {frontmatter: string; body: string} {
-  const m = FRONTMATTER_RE.exec(text);
-  const frontmatter = m ? m[0] : '';
-  return {frontmatter, body: text.slice(frontmatter.length)};
-}
 
 function LoadedEditor({initialMarkup, docDirRef, config}: {initialMarkup: string; docDirRef: React.RefObject<string>; config: EditorConfig}) {
   const initialSplit = useMemo(() => splitFrontmatter(initialMarkup), [initialMarkup]);
@@ -337,6 +305,22 @@ function LoadedEditor({initialMarkup, docDirRef, config}: {initialMarkup: string
             }
             prev(state, node, parent, index);
           });
+
+          // GFM table cells: a `|` inside inline code or math must be written as `\|` (GFM
+          // unescapes it before parsing the cell), otherwise it splits the cell on the next open
+          // and the following columns are lost. The library escapes pipes in plain text but writes
+          // code/math raw, so escape whatever is still unescaped after the cell is rendered.
+          for (const cell of ['td', 'th']) {
+            b.overrideNodeSerializerSpec(cell, (prev) => (state, node, parent, index) => {
+              const start = state.out.length;
+              prev(state, node, parent, index);
+              const written = state.out.slice(start);
+              const delim = written.indexOf('|'); // the cell's own leading separator
+              if (delim < 0) return;
+              state.out = state.out.slice(0, start) + written.slice(0, delim + 1) +
+                escapeTableCellPipes(written.slice(delim + 1));
+            });
+          }
 
           // Round-trip: <br> in markup → hardbreak token → hard_break node (html_inline renders as text, not a break).
           b.configureMd((md) => {

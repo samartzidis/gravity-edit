@@ -35,3 +35,12 @@ Thumbs.db
 
 # Other
 .memory
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+
+# VS Code integration tests
+.vscode-test/
+out-integration/

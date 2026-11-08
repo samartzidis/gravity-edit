@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 
 import {log} from './log';
 import type {ExtensionMessage, WebviewMessage} from './webview-protocol';
+import {buildWebviewHtml, getNonce} from './webviewHtml';
 
 const BLANK_DRAWIO_XML = `<mxfile host="app.diagrams.net">
   <diagram name="Page-1">
@@ -22,17 +23,11 @@ const BLANK_DRAWIO_XML = `<mxfile host="app.diagrams.net">
 // actual line ending. Without normalizing document text to LF before comparing it
 // against webview-originated text, a CRLF document would never textually match,
 // breaking the self-echo checks this file and Editor.tsx rely on to avoid resetting
-// the WYSIWYG cursor on every save. Trade-off accepted: since we always write the
-// webview's LF-only text back into the document verbatim (see the 'edit' handler and
-// the save-flush below), a CRLF file's line endings get silently converted to LF the
-// first time it's edited through Gravity Editor.
+// the WYSIWYG cursor on every save. The webview's LF-only text is written back as is
+// (see the 'edit' handler and the save-flush below); VS Code converts it to the
+// document's own line ending, so a CRLF file stays CRLF (integration/eventOrder.test.ts).
 function toLf(text: string): string {
   return text.replace(/\r\n/g, '\n');
-}
-
-function getNonce(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  return Array.from({length: 32}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 }
 
 function resolveTheme(kind: vscode.ColorThemeKind): 'light' | 'dark' | 'light-hc' | 'dark-hc' {
@@ -386,6 +381,14 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
       if (e.document.uri.toString() !== document.uri.toString()) {
         return;
       }
+      // No content changed: VS Code fires these when only the dirty flag flips (after an edit,
+      // and on save - see integration/eventOrder.test.ts). Their text can lag lastKnownText:
+      // when a save hold ends on the save edit's echo, a queued edit starts immediately, and the
+      // dirty-flag events that follow still carry the saved text. Comparing them would misread
+      // that as an external change and reset the webview (cursor jump mid-typing).
+      if (e.contentChanges.length === 0) {
+        return;
+      }
       const currentText = toLf(e.document.getText());
       // Nothing new: either the echo of our own edit/flush, or a true no-op (e.g. VS
       // Code's benign Ctrl+S-with-nothing-changed event, which leaves the text unchanged).
@@ -457,84 +460,14 @@ export class MarkdownEditorProvider implements vscode.CustomTextEditorProvider {
     drawioDir: vscode.Uri,
     docDir: vscode.Uri,
   ): string {
-    const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(webviewDir, 'main.js'),
-    );
-    const viewerJsUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(drawioDir, 'viewer-static.min.js'),
-    );
-    // Base href makes all relative image paths in the markdown resolve correctly
-    // without any text manipulation - the browser handles it transparently.
-    const baseHref = webview.asWebviewUri(docDir).toString() + '/';
-    const nonce = getNonce();
-
-    // CSS is injected at runtime by the Vite IIFE bundle (no separate main.css).
-    // 'unsafe-inline' in style-src is required for both gravity-ui runtime style injection
-    // and the Vite-inlined CSS stylesheet.
-    // 'unsafe-eval' in script-src is required by viewer-static.min.js (mxGraph/draw.io viewer),
-    // and also by the eval() call inside mxStencilRegistry when loading JS shape classes.
-    // 'connect-src' covers the synchronous XHR that mxStencilRegistry makes to fetch stencil
-    // XML and JS shape files on demand from viewer.diagrams.net.
-    const csp = [
-      `default-src 'none'`,
-      `img-src ${webview.cspSource} data: blob: https: http:`,
-      `media-src https: http: data: blob:`,
-      `style-src ${webview.cspSource} 'unsafe-inline'`,
-      `font-src ${webview.cspSource} data:`,
-      `script-src 'nonce-${nonce}' 'unsafe-eval'`,
-      `connect-src ${webview.cspSource} https://viewer.diagrams.net`,
-    ].join('; ');
-
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <base href="${baseHref}" />
-  <meta http-equiv="Content-Security-Policy" content="${csp}" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gravity Markdown Editor</title>
-  <script nonce="${nonce}">window.onDrawioViewerLoad = function() {};</script>
-  <script nonce="${nonce}" src="${viewerJsUri}"></script>
-  <script nonce="${nonce}">mxStencilRegistry.allowEval = true;</script>
-  <style>
-    html, body, #root { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; }
-    /* Reset VS Code webview injected dark styles so Gravity UI light theme takes over */
-    blockquote { background: inherit; border-color: inherit; color: inherit; }
-    /*
-      Ctrl+F search uses @gravity-ui/uikit Popup with default z-index 1000.
-      The markdown editor sticky toolbar uses z-index 2000, so the popup was hidden beneath it.
-      Target the Floating UI root that wraps our search panel only.
-    */
-    div[data-floating-ui-placement]:has([data-qa="g-md-search-panel"]) {
-      z-index: 10000 !important;
-    }
-    /*
-      Same issue for the (?) HelpMark tooltip (e.g. the math toolbar dropdown's
-      "Inline math"/"Math block" hints): its Popover also defaults to z-index 1000,
-      so it renders behind the sticky toolbar instead of over it.
-    */
-    div[data-floating-ui-placement]:has(.g-help-mark__popover) {
-      z-index: 10000 !important;
-    }
-    /*
-      Same issue for the image popups: the edit-image form (opened from the image's "..." menu),
-      that menu itself, and the toolbar's insert-image form. All are default-z-index Popups that
-      can land underneath the sticky toolbar when the image sits near the top of the viewport.
-    */
-    div[data-floating-ui-placement]:has(.g-md-image-tooltip-form),
-    div[data-floating-ui-placement]:has(.g-md-image-form),
-    div[data-floating-ui-placement]:has([data-qa="g-md-image-settings-menu"]) {
-      z-index: 10000 !important;
-    }
-    :root { --g-md-editor-padding: 8px 16px 0; }
-    .ProseMirror { padding: 0 !important; }
-    .ProseMirror::after { content: ''; display: block; height: 24px; }
-  </style>
-</head>
-<body>
-  <div id="root"></div>
-  <script nonce="${nonce}" src="${scriptUri}"></script>
-</body>
-</html>`;
+    return buildWebviewHtml({
+      cspSource: webview.cspSource,
+      scriptUri: webview.asWebviewUri(vscode.Uri.joinPath(webviewDir, 'main.js')).toString(),
+      viewerJsUri: webview.asWebviewUri(vscode.Uri.joinPath(drawioDir, 'viewer-static.min.js')).toString(),
+      // Base href makes all relative image paths in the markdown resolve correctly
+      // without any text manipulation - the browser handles it transparently.
+      baseHref: webview.asWebviewUri(docDir).toString() + '/',
+      nonce: getNonce(),
+    });
   }
 }

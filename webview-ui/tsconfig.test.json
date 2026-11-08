@@ -1,0 +1,5 @@
+{
+  // Type-checks the webview unit tests (Vitest runs them without checking types).
+  "extends": "./tsconfig.json",
+  "include": ["src", "test", "vitest.config.ts", "../src/webview-protocol.ts"]
+}

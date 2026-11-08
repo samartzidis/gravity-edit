@@ -1,0 +1,16 @@
+{
+  // Compiles integration/ (mocha, run inside a real VS Code by .vscode-test.mjs) to out-integration/.
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "outDir": "out-integration",
+    "rootDir": "integration",
+    "types": ["node", "mocha"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "sourceMap": true
+  },
+  "include": ["integration"]
+}
