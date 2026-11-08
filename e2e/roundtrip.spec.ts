@@ -126,12 +126,12 @@ test.describe('known normalizations', () => {
     expect(await save(page, '[note] see [x](y)\n')).toBe(`${BS}[note${BS}] see [x](y)`);
   });
 
-  test('demo.md: only the blank lines after the drawio/mermaid fences and the final newline change', async ({page}) => {
-    const text = readRepoFile('demo/demo.md');
+  test('sample.md: only the blank lines after the drawio/mermaid fences and the final newline change', async ({page}) => {
+    const text = readRepoFile('e2e/fixtures/sample.md');
     const expected = withoutFinalNewline(text)
       .replace('```\n\n```mermaid', '```\n```mermaid')
       .replace('```\n\n## Single', '```\n## Single');
     expect(expected).not.toBe(withoutFinalNewline(text)); // the two replacements matched
-    expect(await save(page, text, {docFolder: 'demo'})).toBe(expected);
+    expect(await save(page, text)).toBe(expected);
   });
 });

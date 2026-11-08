@@ -1,7 +1,5 @@
 // Webview behaviour in a real browser: edit posting and the save handshake, external updates,
 // undo, mode switching, link routing, popups vs the sticky toolbar, draw.io, and CSP.
-import * as path from 'path';
-
 import {expect, test, type Page} from '@playwright/test';
 
 import {openEditor, readRepoFile} from './webview';
@@ -223,11 +221,11 @@ test.describe('popups vs the sticky toolbar', () => {
 
 test.describe('draw.io and page health', () => {
   test('a file-based diagram is requested from the extension and rendered', async ({page}) => {
-    const wv = await openEditor(page, '```drawio\n./diagram.drawio\n```\n', {docFolder: 'demo'});
+    const wv = await openEditor(page, '```drawio\n./diagram.drawio\n```\n');
     await expect.poll(async () => (await wv.postedOf('readDrawioFile')).length).toBe(1);
     const [req] = await wv.postedOf('readDrawioFile');
     expect(req.src).toBe('./diagram.drawio');
-    await wv.send({type: 'drawioFileContent', id: req.id, xml: readRepoFile(path.join('demo', 'diagram.drawio'))});
+    await wv.send({type: 'drawioFileContent', id: req.id, xml: readRepoFile('e2e/fixtures/diagram.drawio')});
     await expect(wv.editor.locator('.mxgraph svg').first()).toBeVisible();
   });
 
@@ -239,11 +237,11 @@ test.describe('draw.io and page health', () => {
     await expect(wv.editor).toContainText('Draw.io error: ENOENT');
   });
 
-  test('demo.md renders with no script errors and only the known CSP blocks', async ({page}) => {
-    const wv = await openEditor(page, readRepoFile('demo/demo.md'), {docFolder: 'demo'});
+  test('sample.md renders with no script errors and only the known CSP blocks', async ({page}) => {
+    const wv = await openEditor(page, readRepoFile('e2e/fixtures/sample.md'));
     await expect.poll(async () => (await wv.postedOf('readDrawioFile')).length).toBe(1);
     const [req] = await wv.postedOf('readDrawioFile');
-    await wv.send({type: 'drawioFileContent', id: req.id, xml: readRepoFile(path.join('demo', 'diagram.drawio'))});
+    await wv.send({type: 'drawioFileContent', id: req.id, xml: readRepoFile('e2e/fixtures/diagram.drawio')});
     await expect(wv.editor.locator('.mxgraph svg').first()).toBeVisible();
     await expect(wv.editor.locator('svg[id^="mermaid"], .mermaid svg').first()).toBeVisible();
     await page.waitForTimeout(500);
